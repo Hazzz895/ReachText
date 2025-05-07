@@ -1,0 +1,10 @@
+{
+  "name": "Reachtext",
+  "image": "image.png",
+  "banner": "banner.png",
+  "author": ["Hazzz895"],
+  "type": "script",
+  "description": "Получает тексты песен, у которых они не доступны",
+  "version": "1.0.0",
+  "script": "script.js"
+}
