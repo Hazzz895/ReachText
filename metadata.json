@@ -5,6 +5,6 @@
   "author": ["Hazzz895"],
   "type": "script",
   "description": "Получает тексты песен, у которых они не доступны",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "script": "script.js"
 }
