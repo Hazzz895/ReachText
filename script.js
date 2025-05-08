@@ -1,26 +1,12 @@
-const settings = getSettings().then((settings) => {
-  if (settings) {
-    trace("Настройки успешно получены");
-    console.log(settings);
-  }
-});
-
-setInterval(async () => {
+setInterval(() => {
   addContextMenuEventListeners();
-  await updateContextMenuLyrics();
-
   //await updateFullScreenLyrics();
-}, settings?.delay?.value || 10);
+}, 20);
 
 /**
  * Содержит информацию о последнем проигрываемом треке.
  */
 let latestTrack = { trackName: null, plainLyrics: null, syncedLyrics: null };
-
-/**
- * @type {Node} Содержит последнюю кнопку контекстного меню.
- */
-let latestContextMenuButton = null;
 
 /**
  * Решил выделить задержку в отдельную переменную, так как привык к синтаксису C# :3
@@ -31,22 +17,42 @@ const delay = async (ms) =>
   await new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Поведение приложения в контекстном меню.
+ * Добавляет обработчик нажатий на все кнопки, открывающее контекстное меню
+ */
+function addContextMenuEventListeners() {
+  document
+    .querySelectorAll(
+      '[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"]'
+    )
+    .forEach((button) => {
+      if (!button.hasClickEventListener) {
+        button.addEventListener("mousedown", async (ev) => {
+          await updateContextMenuLyrics(ev.currentTarget)
+        });;
+        button.hasClickEventListener = true;
+      }
+    });
+}
+
+/**
+ * Обработчик нажатия кнопки открытия контекстного меню.
+ * @param {Node} el Элемент кнопки контекстного меню.
  * @returns {void} Возращается при прекращении работы.
  */
-async function updateContextMenuLyrics() {
+async function updateContextMenuLyrics(el) {
+  await delay(10);
   var contextMenu = document.querySelector(
     '[data-test-id="TRACK_CONTEXT_MENU"]'
   );
 
   if (!contextMenu) return;
-
   var contextLyricsButton = document.querySelector(
     '[data-test-id="TRACK_CONTEXT_MENU_LYRICS_BUTTON"]'
   );
 
   // Если кнопка есть, но текста нет - кнопка удаляется
   if (contextLyricsButton && !latestTrack.plainLyrics) {
+    trace('Удаление кнопки');
     contextLyricsButton.remove();
     return;
   }
@@ -54,7 +60,7 @@ async function updateContextMenuLyrics() {
   if (contextLyricsButton) return;
 
   let trackContainer =
-    latestContextMenuButton.parentElement.parentElement.parentElement;
+    el.parentElement.parentElement.parentElement;
 
   // Ищем родителя с метаданными
   do {
@@ -77,14 +83,16 @@ async function updateContextMenuLyrics() {
 
   if (trackName && artistName && latestTrack.trackName != trackName) {
     latestTrack.trackName = trackName;
-    getTrackLyrics(trackName, artistName);
+    await getTrackLyrics(trackName, artistName)
   }
 
-  if (!latestTrack.plainLyrics) return;
+  if (!latestTrack.plainLyrics) {
+    return;
+  } 
 
-  var button = createContextButton();
+  contextLyricsButton = createContextButton();
 
-  button.addEventListener("click", async () => {
+  contextLyricsButton.addEventListener("click", async () => {
     await createLyricsDialog(
       latestTrack.trackName,
       latestTrack.artistName,
@@ -97,7 +105,7 @@ async function updateContextMenuLyrics() {
   });
 
   contextMenu.insertBefore(
-    button,
+    contextLyricsButton,
     document.querySelector('[data-test-id="CONTEXT_MENU_SHARE_BUTTON"]')
       .parentElement
   );
@@ -249,24 +257,6 @@ async function clearTrackLyrics() {
 }
 
 /**
- * Добавляет обработчик нажатий на все кнопки, открывающее контекстное меню
- */
-function addContextMenuEventListeners() {
-  document
-    .querySelectorAll(
-      '[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"]'
-    )
-    .forEach((button) => {
-      if (!button.hasClickEventListener) {
-        button.addEventListener("mousedown", (ev) => {
-          latestContextMenuButton = ev.currentTarget;
-        });
-        button.hasClickEventListener = true;
-      }
-    });
-}
-
-/**
  * (В РАЗРАБОТКЕ) Поведение приложения в полноэкранном режиме.
  * @returns {void} Возращается при прекращении работы.
  */
@@ -297,67 +287,6 @@ async function updateFullScreenLyrics() {
 }
 
 /**
- * Получает настройки из API
- * @returns {Promise<any>} Возвращает настройки из API
- */
-async function getSettings() {
-  try {
-    const response = await fetch(
-      `http://localhost:2007/get_handle?name=ReachText`
-    );
-    if (!response.ok) throw new Error(`Ошибка сети: ${response.status}`);
-
-    const { data } = await response.json();
-    if (!data?.sections) {
-      console.warn("Структура данных не соответствует ожидаемой");
-      return null;
-    }
-
-    return transformJSON(data);
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-}
-
-/**
- * Преобразует JSON строку в объект с настройками
- * @param {String} data JSON строка с настройками
- * @returns Объект с настройками
- */
-function transformJSON(data) {
-  const result = {};
-
-  try {
-    data.sections.forEach((section) => {
-      section.items.forEach((item) => {
-        if (item.type === "text" && item.buttons) {
-          result[item.id] = {};
-          item.buttons.forEach((button) => {
-            result[item.id][button.id] = {
-              value: button.text,
-              default: button.defaultParameter,
-            };
-          });
-        } else {
-          result[item.id] = {
-            value:
-              item.bool ||
-              item.input ||
-              item.selected ||
-              item.value ||
-              item.filePath,
-            default: item.defaultParameter,
-          };
-        }
-      });
-    });
-  } finally {
-    return result;
-  }
-}
-
-/**
  * Необходим для подробного логгирования
  * @param {*} msg Сообщение
  */
@@ -370,6 +299,6 @@ function trace(msg) {
 /**
  * @type {boolean} Включает подробное логгирование
  */
-const traceEnabled = false;
+const traceEnabled = true;
 
 trace("Начало работы");
