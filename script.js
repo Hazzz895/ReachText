@@ -52,7 +52,6 @@ async function updateContextMenuLyrics(el) {
 
   // Если кнопка есть, но текста нет - кнопка удаляется
   if (contextLyricsButton && !latestTrack.plainLyrics) {
-    trace('Удаление кнопки');
     contextLyricsButton.remove();
     return;
   }
@@ -299,6 +298,6 @@ function trace(msg) {
 /**
  * @type {boolean} Включает подробное логгирование
  */
-const traceEnabled = true;
+const traceEnabled = false;
 
 trace("Начало работы");
