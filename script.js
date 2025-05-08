@@ -22,7 +22,7 @@ const delay = async (ms) =>
 function addContextMenuEventListeners() {
   document
     .querySelectorAll(
-      '[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"]'
+      '[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"], [data-test-id="FULLSCREEN_PLAYER_CONTEXT_MENU_BUTTON"]'
     )
     .forEach((button) => {
       if (!button.hasClickEventListener) {
