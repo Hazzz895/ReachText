@@ -1,7 +1,42 @@
+/**
+ * @type {boolean} Включает подробное логгирование
+ */
+const traceEnabled = false;
+
+/**
+ * Необходим для подробного логгирования
+ * @param {*} msg Сообщение
+ */
+function trace(msg) {
+  if (traceEnabled) {
+    console.log(`[ReachText] [TR]: ${msg}`);
+  }
+}
+
 setInterval(() => {
   addContextMenuEventListeners();
-  //await updateFullScreenLyrics();
 }, 20);
+
+/**
+ * Геттеры, урпощающие получение информации о текущем треке
+ */
+const info = {
+  get progress() {
+    return player?.state?.currentMediaPlayer?.value?.audioPlayerState?.progress
+      ?.value;
+  },
+  get meta() {
+    return player?.state?.queueState?.currentEntity?.value?.entity?.entityData
+      ?.meta;
+  },
+  get playerState() {
+    return window?.player?.state?.playerState;
+  },
+  get status() {
+    return window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState
+      ?.status?.observableValue?.value;
+  },
+};
 
 /**
  * Содержит информацию о последнем проигрываемом треке.
@@ -17,6 +52,260 @@ const delay = async (ms) =>
   await new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Движение по оси Y для синхронизированного текста
+ */
+let translate = 0;
+
+/**
+ * Массив объектов представляющие элемент, время и содержанние всех строк синхронизированного текста
+ */
+let lyricsLines;
+
+/**
+ * timeout, который используется для синхронизированного текста
+ */
+let timeout = null;
+
+// Создание синхронизированного текста при нажатии на открытие полноэкранного режима
+document
+  .querySelector('[data-test-id="FULLSCREEN_PLAYER_BUTTON"]')
+  .addEventListener("mouseup", createLyricsModal);
+
+// Подписка не эвенте плеера
+info.playerState.event.onChange(async (event) => {
+  switch (event) {
+    // Если трек поставлен на паузу
+    case "audio-paused":
+    case "audio-ended":
+    case "audio-end":
+      clearTimeout(timeout);
+      break;
+    // Если трек был убран с паузы или была изменена позиция трека
+    case "audio-resumed":
+    case "audio-set-progress":
+    case "audio-updating-progress":
+      // По какой-то причине не срабатывает при смене трека
+      if (latestTrack.trackName != info?.meta?.title) {
+        trace("Удаление синхронизированного текста");
+        removeLyricsModal();
+      } else {
+        if (
+          document.querySelector(".FullscreenPlayerDesktopContent_root__tKNGK")
+        ) {
+          await updateFullScreenLyricsProgress();
+        }
+      }
+      break;
+    // После того как трек загрузился
+    case "audio-canplay":
+      if (
+        info.meta?.lyricsInfo.hasAvailableSyncLyrics ||
+        latestTrack.trackName == info.meta?.title
+      ) {
+        break;
+      }
+
+      const availableButtonClass = "HbaqudSqu7Q3mv3zMPGr";
+      var playerSyncLyricsButton = document.querySelector(
+        '[data-test-id="PLAYERBAR_DESKTOP_SYNC_LYRICS_BUTTON"]'
+      );
+
+      var trackName = info.meta?.title;
+      var artistName = info.meta?.artists
+        ?.map((artist) => artist.name)
+        .join(", ");
+      var trackLength = info.progress?.duration;
+
+      if (!trackName || !artistName) break;
+
+      if (trackName != latestTrack.trackName) {
+        latestTrack.trackName = trackName;
+        await getTrackLyrics(trackName, artistName, trackLength);
+      }
+
+      if (latestTrack.syncedLyrics) {
+        // Включаем кнопку
+        playerSyncLyricsButton.classList.add(availableButtonClass);
+        playerSyncLyricsButton.removeAttribute("disabled");
+        playerSyncLyricsButton.setAttribute("aria-hidden", "false");
+      } else {
+        // Выключаем кнопку
+        playerSyncLyricsButton.classList.remove(availableButtonClass);
+        playerSyncLyricsButton.setAttribute("disabled", "true");
+        playerSyncLyricsButton.setAttribute("aria-hidden", "false");
+      }
+      break;
+  }
+});
+
+/**
+ * Удаление синхронизированного текта
+ */
+function removeLyricsModal() {
+  if (timeout) {
+    clearTimeout(timeout);
+  }
+
+  timeout = null;
+  document
+    .querySelector(".FullscreenPlayerDesktopContent_syncLyrics__6dTfH")
+    ?.remove();
+  document
+    .querySelector(".FullscreenPlayerDesktopContent_fullscreenContent__Nvety")
+    ?.classList.remove(
+      "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
+    );
+}
+
+/**
+ * Обновление синхронизированного текста
+ * @returns {void} Возращается при прекращении работы.
+ */
+async function updateFullScreenLyricsProgress() {
+  var position = info.progress?.position;
+  var swiper = document.querySelector(".swiper-wrapper");
+
+  if (!swiper && !info.meta?.lyricsInfo.hasAvailableSyncLyrics) {
+    return await createLyricsModal();
+  }
+
+  if (!lyricsLines) return;
+
+  if (timeout) {
+    clearTimeout(timeout);
+  }
+
+  let index = lyricsLines.findIndex((line) => line.timestamp / 1000 > position);
+
+  if (index < 0) {
+    console.error("[ReachText] Ошибка при попытке обновить текст");
+    return;
+  } else {
+    translate = -lyricsLines
+      .slice(0, index > 0 ? index - 1 : 0)
+      .reduce((sum, line) => {
+        const height = line.node?.offsetHeight || 0;
+        return sum + height + 32;
+      }, 0);
+  }
+
+  swiper.style.transform = `translate3d(0px, ${translate}px, 0px)`;
+
+  let timeoutDelay = (lyricsLines[index].timestamp / 1000 - position) * 1000;
+  timeout = setTimeout(updateFullScreenLyricsProgress, timeoutDelay);
+}
+
+/**
+ * Cоздает и добавляет элемент в полноэкранном режиме с синхронизируемым текстом песни.
+ * @returns {void} Возращается при прекращении работы.
+ */
+async function createLyricsModal() {
+  if (
+    info.meta?.lyricsInfo.hasAvailableSyncLyrics ||
+    !latestTrack?.syncedLyrics
+  ) {
+    return;
+  }
+
+  const syncedLyrics = latestTrack.syncedLyrics;
+
+  await delay(10);
+
+  const root = document.querySelector(
+    ".FullscreenPlayerDesktopContent_root__tKNGK"
+  );
+
+  if (!root) return;
+
+  var lyricsContainer = root.querySelector(
+    ".FullscreenPlayerDesktopContent_syncLyrics__6dTfH"
+  );
+
+  if (lyricsContainer) return;
+
+  var additionalContent = root.querySelector(
+    ".FullscreenPlayerDesktopContent_additionalContent__tuuy7"
+  );
+
+  if (!additionalContent) {
+    additionalContent = createElementFromHTML(
+      '<div class="FullscreenPlayerDesktopContent_additionalContent__tuuy7"></div>'
+    );
+    root.appendChild(additionalContent);
+  }
+
+  var player = root.querySelector(
+    ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
+  );
+
+  //Применение анимации
+  player.classList.add(
+    "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
+  );
+
+  lyricsContainer = createElementFromHTML(
+    `<div     class="SyncLyrics_root__6KZg4 FullscreenPlayerDesktopContent_syncLyrics__6dTfH"   >     <div       class="SyncLyrics_content__lbkWP FullscreenPlayerDesktopContent_syncLyricsContent__H_enX"       data-test-id="SYNC_LYRICS_CONTENT"     >       <div         class="swiper swiper-initialized swiper-vertical swiper-free-mode SyncLyricsScroller_root__amiLm undefined FullscreenPlayerDesktopContent_syncLyricsScroller__JslVK"       >         <div           class="swiper-wrapper"           style="             transition-duration: 500ms;             transform: translate3d(0px, 0px, 0px);             transition-delay: 0ms;           "         >           <div             class="swiper-slide SyncLyricsScroller_counter__B2E7K FullscreenPlayerDesktopContent_syncLyricsCounter__CnB_k"             style="margin-bottom: 32px"           ></div>           <div             class="swiper-slide FullscreenPlayerDesktopContent_syncLyricsFooter__HS8JZ"             style="margin-bottom: 32px"           >             <footer class="SyncLyricsFooter_root__STCKQ">               <div                 class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR SyncLyricsFooter_writers__c7zhj"               >                 Авторы: ${latestTrack.artistName}            </div>               <div                 class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR SyncLyricsFooter_major__QMZmT"               >                 Источник: LRCLib              </div>             </footer>           </div>         </div>       </div>     </div>   </div> `
+  );
+
+  const scoller = lyricsContainer.querySelector(
+    ".FullscreenPlayerDesktopContent_syncLyricsScroller__JslVK"
+  );
+  lyricsContainer.addEventListener("hover", (e) => {
+    scoller.classList.add(
+      "SyncLyricsScroller_root_withVisibleUpperLyrics__d7noO"
+    );
+  });
+
+  additionalContent.appendChild(lyricsContainer);
+
+  // Закрытие полноэкранного режима
+  document
+    .querySelector('[data-test-id="FULLSCREEN_PLAYER_CLOSE_BUTTON"]')
+    .addEventListener("mouseup", removeLyricsModal);
+
+  const swiper = lyricsContainer.querySelector(".swiper-wrapper");
+  const swiiperFirstChild = swiper.firstChild;
+
+  var jsonLyricsLines = syncedLyricsToObj(syncedLyrics);
+
+  lyricsLines = jsonLyricsLines.map((line) => {
+    const nodeLine = createElementFromHTML(
+      `<div class="swiper-slide SyncLyricsScroller_line__Vh6WN SyncLyricsScroller_line_active__6lLvH swiper-slide-active" data-test-id="SYNC_LYRICS_LINE" style="margin-bottom: 32px;"><span class="SyncLyricsLine_root__r62BN">${line.text}</span></div>`
+    );
+    swiper.insertBefore(nodeLine, swiiperFirstChild);
+    return { node: nodeLine, timestamp: line.timestamp, text: line.text };
+  });
+
+  if (!Array.isArray(lyricsLines) || lyricsLines.length < 2) return;
+
+  updateFullScreenLyricsProgress();
+}
+
+/**
+ * Форматирует синхронизируемый текст песни в объект.
+ * @param {String} syncedLyrics Синхронизируемый текст песни.
+ * @return {Array<any>} Отформатируенный объект
+ */
+function syncedLyricsToObj(syncedLyrics) {
+  const result = syncedLyrics.split("\n").map((line) => {
+    const match = line.match(/\[(\d{2}):(\d{2}).(\d{2})\] (.+)/);
+    if (match) {
+      const minutes = parseInt(match[1]);
+      const seconds = parseInt(match[2]);
+      const milliseconds = parseInt(match[3]);
+      const totalMilliseconds =
+        ((60 * minutes + seconds) * 100 + milliseconds) * 10;
+      return {
+        timestamp: totalMilliseconds,
+        text: match[4],
+      };
+    }
+  });
+
+  return result.filter((line) => line !== undefined && line.text != undefined);
+}
+
+/**
  * Добавляет обработчик нажатий на все кнопки, открывающее контекстное меню
  */
 function addContextMenuEventListeners() {
@@ -27,8 +316,8 @@ function addContextMenuEventListeners() {
     .forEach((button) => {
       if (!button.hasClickEventListener) {
         button.addEventListener("mousedown", async (ev) => {
-          await updateContextMenuLyrics(ev.currentTarget)
-        });;
+          await updateContextMenuLyrics(ev.currentTarget);
+        });
         button.hasClickEventListener = true;
       }
     });
@@ -46,6 +335,7 @@ async function updateContextMenuLyrics(el) {
   );
 
   if (!contextMenu) return;
+
   var contextLyricsButton = document.querySelector(
     '[data-test-id="TRACK_CONTEXT_MENU_LYRICS_BUTTON"]'
   );
@@ -58,8 +348,7 @@ async function updateContextMenuLyrics(el) {
 
   if (contextLyricsButton) return;
 
-  let trackContainer =
-    el.parentElement.parentElement.parentElement;
+  let trackContainer = el.parentElement.parentElement.parentElement;
 
   // Ищем родителя с метаданными
   do {
@@ -82,12 +371,12 @@ async function updateContextMenuLyrics(el) {
 
   if (trackName && artistName && latestTrack.trackName != trackName) {
     latestTrack.trackName = trackName;
-    await getTrackLyrics(trackName, artistName)
+    await getTrackLyrics(trackName, artistName);
   }
 
   if (!latestTrack.plainLyrics) {
     return;
-  } 
+  }
 
   contextLyricsButton = createContextButton();
 
@@ -216,12 +505,15 @@ function getNameAndFormat(querySelector, doc) {
  */
 async function getTrackLyrics(trackName, artistName, trackDuration) {
   try {
-    trace("Отправляется запрос на получение текста");
-    let results = await (
-      await fetch(
-        `https://lrclib.net/api/search?track_name=${trackName}&artist_name=${artistName}`
-      )
-    )?.json();
+    trace(
+      `Отправляется запрос на получение текста: ${trackName} - ${artistName} ${
+        trackDuration ? "(" + trackDuration + "s)" : "(длина песни не указана)"
+      }`
+    );
+    let plainResults = await fetch(
+      `https://lrclib.net/api/search?track_name=${trackName}&artist_name=${artistName}`
+    );
+    let results = await plainResults.json();
     if (!results || !Array.isArray(results)) {
       trace("Неудачная попытка получения текста");
       clearTrackLyrics();
@@ -229,7 +521,10 @@ async function getTrackLyrics(trackName, artistName, trackDuration) {
     }
 
     if (trackDuration && trackDuration > 0) {
-      results = results.filter((result) => result.duration == trackDuration);
+      // Если указана длина трека, то исключем из результата те треки, разница в длине которых больше 2 секунд по сравнению с действительностью
+      results = results.filter(
+        (result) => Math.abs(result.duration - trackDuration) < 2
+      );
     }
 
     if (results.length == 0) {
@@ -254,50 +549,5 @@ async function clearTrackLyrics() {
   latestTrack.plainLyrics = null;
   latestTrack.syncLyrics = null;
 }
-
-/**
- * (В РАЗРАБОТКЕ) Поведение приложения в полноэкранном режиме.
- * @returns {void} Возращается при прекращении работы.
- */
-async function updateFullScreenLyrics() {
-  // Прекращение работы если текст уже доступен
-  if (
-    document.querySelector(
-      `[data-test-id="PLAYERBAR_DESKTOP_SYNC_LYRICS_BUTTON"].HbaqudSqu7Q3mv3zMPGr`
-    )
-  )
-    return;
-
-  const trackName = getNameAndFormat(
-    ".FullscreenPlayerDesktopContent_meta__3jDTy * .Meta_title__GGBnH"
-  );
-  const artistName = getNameAndFormat(
-    ".FullscreenPlayerDesktopContent_meta__3jDTy * .Meta_artistCaption__JESZi"
-  );
-  if (!trackName || !artistName || latestTrack.trackName == trackName) return;
-
-  latestTrack.trackName = trackName;
-  const trackLength = document.querySelector(
-    'section.PlayerBar_root__cXUnU * [data-test-id="TIMECODE_SLIDER"]'
-  )?.max;
-  await getTrackLyrics(trackName, artistName, trackLength);
-
-  // Функционал в разработке ...
-}
-
-/**
- * Необходим для подробного логгирования
- * @param {*} msg Сообщение
- */
-function trace(msg) {
-  if (traceEnabled) {
-    console.log(`[ReachText] [TR]: ${msg}`);
-  }
-}
-
-/**
- * @type {boolean} Включает подробное логгирование
- */
-const traceEnabled = false;
 
 trace("Начало работы");
