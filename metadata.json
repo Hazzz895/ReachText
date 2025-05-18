@@ -7,6 +7,6 @@
     ],
     "type": "script",
     "description": "Получает тексты песен, у которых они не доступны",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "script": "script.js"
 }

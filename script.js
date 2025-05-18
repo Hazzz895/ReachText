@@ -110,7 +110,8 @@ info.playerState.event.onChange(async (event) => {
         removeLyricsModal();
       } else if (
         document.querySelector(".FullscreenPlayerDesktopContent_root__tKNGK") &&
-        !info.meta?.lyricsInfo?.hasAvailableSyncLyrics
+        !info.meta?.lyricsInfo?.hasAvailableSyncLyrics &&
+        latestTrack.syncedLyrics
       ) {
         document.querySelectorAll(".swiper-slide-next").forEach((line) => {
           line.classList.remove("swiper-slide-next");
@@ -152,6 +153,8 @@ info.playerState.event.onChange(async (event) => {
       }
 
       if (info.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
+        clearTrackLyrics();
+        latestTrack.trackName = null;
         break;
       }
 
