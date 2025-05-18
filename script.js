@@ -1,7 +1,7 @@
 /**
  * @type {boolean} Включает подробное логгирование
  */
-const traceEnabled = false;
+const traceEnabled = true;
 
 /**
  * Необходим для подробного логгирования
@@ -66,6 +66,16 @@ let lyricsLines;
  */
 let timeout = null;
 
+/**
+ * timeout, который используется для задержки после наведения курсора на синхронизированный текст
+ */
+let hoverTimeout = null;
+
+/**
+ * timeout, который используется для задержки после наведения прокрутки мышью синхронизированного текста
+ */
+let wheelTimeout = null;
+
 // Создание синхронизированного текста при нажатии на открытие полноэкранного режима
 document
   .querySelector('[data-test-id="FULLSCREEN_PLAYER_BUTTON"]')
@@ -78,30 +88,70 @@ info.playerState.event.onChange(async (event) => {
     case "audio-paused":
     case "audio-ended":
     case "audio-end":
-      clearTimeout(timeout);
+      if (!info.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
+        document
+          .querySelector(".SyncLyricsScroller_counter__B2E7K")
+          ?.querySelectorAll(".SyncLyricsLoader_element___Luwv")
+          ?.forEach((pointEl) =>
+            pointEl.classList.add("SyncLyricsLoader_element_paused__LFpD0")
+          );
+        clearTimeout(timeout);
+      }
       break;
     // Если трек был убран с паузы или была изменена позиция трека
     case "audio-resumed":
     case "audio-set-progress":
     case "audio-updating-progress":
-      // По какой-то причине не срабатывает при смене трека
-      if (latestTrack.trackName != info?.meta?.title) {
+      if (
+        latestTrack.trackName != info.meta?.title &&
+        !info.meta?.lyricsInfo?.hasAvailableSyncLyrics
+      ) {
         trace("Удаление синхронизированного текста");
         removeLyricsModal();
-      } else {
-        if (
-          document.querySelector(".FullscreenPlayerDesktopContent_root__tKNGK")
-        ) {
-          await updateFullScreenLyricsProgress();
-        }
+      } else if (
+        document.querySelector(".FullscreenPlayerDesktopContent_root__tKNGK") &&
+        !info.meta?.lyricsInfo?.hasAvailableSyncLyrics
+      ) {
+        document.querySelectorAll(".swiper-slide-next").forEach((line) => {
+          line.classList.remove("swiper-slide-next");
+        });
+
+        document.querySelectorAll(".swiper-slide-prev").forEach((line) => {
+          line.classList.remove("swiper-slide-prev");
+        });
+
+        document
+          .querySelectorAll(
+            ".swiper-slide-active.SyncLyricsScroller_line_active__6lLvH"
+          )
+          .forEach((line) => {
+            line.classList.remove("swiper-slide-active");
+            line.classList.remove("SyncLyricsScroller_line_active__6lLvH");
+          });
+
+        document
+          .querySelector(".SyncLyricsScroller_counter__B2E7K")
+          ?.querySelectorAll(".SyncLyricsLoader_element___Luwv")
+          .forEach((pointEl) =>
+            pointEl.classList.remove("SyncLyricsLoader_element_paused__LFpD0")
+          );
+
+        await updateFullScreenLyricsProgress();
       }
+
       break;
     // После того как трек загрузился
     case "audio-canplay":
+      clearTimeout(timeout);
+
       if (
-        info.meta?.lyricsInfo.hasAvailableSyncLyrics ||
-        latestTrack.trackName == info.meta?.title
+        document.querySelector(".swiper-wrapper")?.isCustom &&
+        info.meta?.lyricsInfo?.hasAvailableSyncLyrics
       ) {
+        await removeLyricsModal();
+      }
+
+      if (info.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
         break;
       }
 
@@ -116,14 +166,21 @@ info.playerState.event.onChange(async (event) => {
         .join(", ");
       var trackLength = info.progress?.duration;
 
-      if (!trackName || !artistName) break;
+      if (!trackName || !artistName || trackName == latestTrack.trackName)
+        break;
 
-      if (trackName != latestTrack.trackName) {
+      if (!info.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
         latestTrack.trackName = trackName;
         await getTrackLyrics(trackName, artistName, trackLength);
+        await removeLyricsModal();
       }
 
       if (latestTrack.syncedLyrics) {
+        if (
+          document.querySelector(".FullscreenPlayerDesktopContent_root__tKNGK")
+        ) {
+          await createLyricsModal();
+        }
         // Включаем кнопку
         playerSyncLyricsButton.classList.add(availableButtonClass);
         playerSyncLyricsButton.removeAttribute("disabled");
@@ -142,11 +199,12 @@ info.playerState.event.onChange(async (event) => {
  * Удаление синхронизированного текта
  */
 function removeLyricsModal() {
-  if (timeout) {
-    clearTimeout(timeout);
-  }
+  if (timeout) clearTimeout(timeout);
+  if (hoverTimeout) clearTimeout(hoverTimeout);
+  if (wheelTimeout) clearTimeout(wheelTimeout);
 
-  timeout = null;
+  timeout = hoverTimeout = wheelTimeout = null;
+
   document
     .querySelector(".FullscreenPlayerDesktopContent_syncLyrics__6dTfH")
     ?.remove();
@@ -164,9 +222,11 @@ function removeLyricsModal() {
 async function updateFullScreenLyricsProgress() {
   var position = info.progress?.position;
   var swiper = document.querySelector(".swiper-wrapper");
+  var counter = document.querySelector(".SyncLyricsScroller_counter__B2E7K");
 
-  if (!swiper && !info.meta?.lyricsInfo.hasAvailableSyncLyrics) {
-    return await createLyricsModal();
+  if (!swiper && !info.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
+    await createLyricsModal();
+    return updateFullScreenLyricsProgress();
   }
 
   if (!lyricsLines) return;
@@ -175,24 +235,99 @@ async function updateFullScreenLyricsProgress() {
     clearTimeout(timeout);
   }
 
-  let index = lyricsLines.findIndex((line) => line.timestamp / 1000 > position);
+  swiper.classList.remove(
+    "SyncLyricsScroller_root_withVisibleScrolledLyrics__lowGE"
+  );
 
-  if (index < 0) {
-    console.error("[ReachText] Ошибка при попытке обновить текст");
-    return;
+  let nextLineIndex = 0;
+
+  if (position > lyricsLines[0].timestamp / 1000) {
+    nextLineIndex = lyricsLines.findIndex(
+      (line) => line.timestamp / 1000 > position
+    );
+
+    if (nextLineIndex < 0) {
+      if (position >= lyricsLines[lyricsLines.length - 1].timestamp / 1000) {
+        nextLineIndex = lyricsLines.length;
+      } else {
+        console.error("[ReachText] Ошибка при попытке обновить текст");
+        return;
+      }
+    }
   } else {
-    translate = -lyricsLines
-      .slice(0, index > 0 ? index - 1 : 0)
-      .reduce((sum, line) => {
-        const height = line.node?.offsetHeight || 0;
-        return sum + height + 32;
-      }, 0);
+    swiper.classList.add("SyncLyricsScroller_root_intro__13gl");
+    if (!counter) {
+      // Создаем таймер до начала текста
+      counter = createElementFromHTML(
+        '<div class="swiper-slide swiper-slide-active SyncLyricsScroller_counter__B2E7K FullscreenPlayerDesktopContent_syncLyricsCounter__CnB_k" style="margin-bottom: 32px;"><div class="SyncLyricsLoader_root__I2hTe"><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.275s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.55s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.825s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 1.1s; animation-duration: 1.1s, 1.1s;"></div></div></div>'
+      );
+
+      if (info.playerState?.status?.value == "paused") {
+        counter
+          .querySelectorAll(".SyncLyricsLoader_element___Luwv")
+          .forEach((pointEl) =>
+            pointEl.classList.add("SyncLyricsLoader_element_paused__LFpD0")
+          );
+      }
+
+      swiper.insertBefore(counter, swiper.firstChild);
+    }
   }
+
+  const nextLyricsLine = lyricsLines[nextLineIndex];
+  translate = -lyricsLines
+    .slice(
+      0,
+      nextLineIndex == lyricsLines.length
+        ? nextLineIndex
+        : nextLineIndex > 0
+        ? nextLineIndex - 1
+        : 0
+    )
+    .reduce((sum, line) => {
+      const height = line.node?.offsetHeight || 0;
+      return sum + height + 32;
+    }, 0);
+
+  if (nextLineIndex - 2 >= 0) {
+    var prevLyricsLine = lyricsLines[nextLineIndex - 2];
+    prevLyricsLine.node.classList.add("swiper-slide-prev");
+    prevLyricsLine.node.classList.remove("swiper-slide-active");
+    prevLyricsLine.node.classList.remove(
+      "SyncLyricsScroller_line_active__6lLvH"
+    );
+  }
+
+  if (nextLineIndex - 1 >= 0) {
+    var currentLyricsLine = lyricsLines[nextLineIndex - 1];
+    currentLyricsLine.node.classList.remove("swiper-slide-next");
+    currentLyricsLine.node.classList.add("swiper-slide-active");
+    currentLyricsLine.node.classList.add(
+      "SyncLyricsScroller_line_active__6lLvH"
+    );
+  }
+
+  if (counter) {
+    if (nextLineIndex == 1) {
+      swiper.classList.remove("SyncLyricsScroller_root_intro__13gl");
+      counter.classList.add("swiper-slide-prev");
+      counter.classList.remove("swiper-slide-active");
+      counter.classList.remove("SyncLyricsScroller_line_active__6lLvH");
+      counter.remove();
+    } else if (nextLineIndex > 1) {
+      counter.remove();
+      counter = null;
+    }
+  }
+
+  nextLyricsLine?.node.classList.add("swiper-slide-next");
 
   swiper.style.transform = `translate3d(0px, ${translate}px, 0px)`;
 
-  let timeoutDelay = (lyricsLines[index].timestamp / 1000 - position) * 1000;
-  timeout = setTimeout(updateFullScreenLyricsProgress, timeoutDelay);
+  if (nextLyricsLine) {
+    let timeoutDelay = (nextLyricsLine.timestamp / 1000 - position) * 1000;
+    timeout = setTimeout(updateFullScreenLyricsProgress, timeoutDelay);
+  }
 }
 
 /**
@@ -201,10 +336,18 @@ async function updateFullScreenLyricsProgress() {
  */
 async function createLyricsModal() {
   if (
-    info.meta?.lyricsInfo.hasAvailableSyncLyrics ||
+    info.meta?.lyricsInfo?.hasAvailableSyncLyrics ||
     !latestTrack?.syncedLyrics
   ) {
     return;
+  }
+
+  if (latestTrack?.trackName !== info.meta?.title) {
+    const trackName = info.meta?.title;
+    const artistName = info.meta?.artists?.map((a) => a.name).join(", ");
+    const trackLength = info.progress?.duration;
+    latestTrack.trackName = trackName;
+    await getTrackLyrics(trackName, artistName, trackLength);
   }
 
   const syncedLyrics = latestTrack.syncedLyrics;
@@ -244,17 +387,12 @@ async function createLyricsModal() {
   );
 
   lyricsContainer = createElementFromHTML(
-    `<div     class="SyncLyrics_root__6KZg4 FullscreenPlayerDesktopContent_syncLyrics__6dTfH"   >     <div       class="SyncLyrics_content__lbkWP FullscreenPlayerDesktopContent_syncLyricsContent__H_enX"       data-test-id="SYNC_LYRICS_CONTENT"     >       <div         class="swiper swiper-initialized swiper-vertical swiper-free-mode SyncLyricsScroller_root__amiLm undefined FullscreenPlayerDesktopContent_syncLyricsScroller__JslVK"       >         <div           class="swiper-wrapper"           style="             transition-duration: 500ms;             transform: translate3d(0px, 0px, 0px);             transition-delay: 0ms;           "         >           <div             class="swiper-slide SyncLyricsScroller_counter__B2E7K FullscreenPlayerDesktopContent_syncLyricsCounter__CnB_k"             style="margin-bottom: 32px"           ></div>           <div             class="swiper-slide FullscreenPlayerDesktopContent_syncLyricsFooter__HS8JZ"             style="margin-bottom: 32px"           >             <footer class="SyncLyricsFooter_root__STCKQ">               <div                 class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR SyncLyricsFooter_writers__c7zhj"               >                 Авторы: ${latestTrack.artistName}            </div>               <div                 class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR SyncLyricsFooter_major__QMZmT"               >                 Источник: LRCLib              </div>             </footer>           </div>         </div>       </div>     </div>   </div> `
+    `<div     class="SyncLyrics_root__6KZg4 FullscreenPlayerDesktopContent_syncLyrics__6dTfH"   >     <div       class="SyncLyrics_content__lbkWP FullscreenPlayerDesktopContent_syncLyricsContent__H_enX"       data-test-id="SYNC_LYRICS_CONTENT"     >       <div         class="swiper swiper-initialized swiper-vertical swiper-free-mode SyncLyricsScroller_root__amiLm undefined FullscreenPlayerDesktopContent_syncLyricsScroller__JslVK"       >         <div           class="swiper-wrapper"           style="             transition-duration: 500ms;             transform: translate3d(0px, 0px, 0px);             transition-delay: 0ms;           "         >    <div             class="swiper-slide FullscreenPlayerDesktopContent_syncLyricsFooter__HS8JZ"             style="margin-bottom: 32px"           >             <footer class="SyncLyricsFooter_root__STCKQ">               <div                 class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR SyncLyricsFooter_writers__c7zhj"               >                 Авторы: ${latestTrack.artistName}            </div>               <div                 class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR SyncLyricsFooter_major__QMZmT"               >                 Источник: LRCLib              </div>             </footer>           </div>         </div>       </div>     </div>   </div> `
   );
 
   const scoller = lyricsContainer.querySelector(
     ".FullscreenPlayerDesktopContent_syncLyricsScroller__JslVK"
   );
-  lyricsContainer.addEventListener("hover", (e) => {
-    scoller.classList.add(
-      "SyncLyricsScroller_root_withVisibleUpperLyrics__d7noO"
-    );
-  });
 
   additionalContent.appendChild(lyricsContainer);
 
@@ -268,15 +406,77 @@ async function createLyricsModal() {
 
   var jsonLyricsLines = syncedLyricsToObj(syncedLyrics);
 
+  let i = 0;
   lyricsLines = jsonLyricsLines.map((line) => {
     const nodeLine = createElementFromHTML(
-      `<div class="swiper-slide SyncLyricsScroller_line__Vh6WN SyncLyricsScroller_line_active__6lLvH swiper-slide-active" data-test-id="SYNC_LYRICS_LINE" style="margin-bottom: 32px;"><span class="SyncLyricsLine_root__r62BN">${line.text}</span></div>`
+      `<div class="swiper-slide SyncLyricsScroller_line__Vh6WN" data-test-id="SYNC_LYRICS_LINE" style="margin-bottom: 32px;"><span class="SyncLyricsLine_root__r62BN">${line.text}</span></div>`
     );
+
+    nodeLine.addEventListener("click", () => {
+      if (
+        !swiper.classList.contains(
+          "SyncLyricsScroller_root_withVisibleScrolledLyrics__lowGE"
+        )
+      )
+        return;
+
+      clearTimeout(wheelTimeout);
+      window.player.setProgress(line.timestamp / 1000);
+    });
     swiper.insertBefore(nodeLine, swiiperFirstChild);
+
+    if (i == 0) {
+      nodeLine.classList.add("swiper-slide-next");
+    }
+
+    i++;
     return { node: nodeLine, timestamp: line.timestamp, text: line.text };
   });
 
-  if (!Array.isArray(lyricsLines) || lyricsLines.length < 2) return;
+  swiper.addEventListener("mouseenter", () => {
+    swiper.classList.add(
+      "SyncLyricsScroller_root_withVisibleUpperLyrics__d7noO"
+    );
+    clearTimeout(hoverTimeout);
+  });
+
+  swiper.addEventListener("mouseleave", () => {
+    hoverTimeout = setTimeout(() => {
+      swiper.classList.remove(
+        "SyncLyricsScroller_root_withVisibleUpperLyrics__d7noO"
+      );
+    }, 3000);
+  });
+
+  swiper.isCustom = true;
+
+  swiper.addEventListener("wheel", (ev) => {
+    ev.preventDefault(); // keep the page fixed
+    clearTimeout(timeout);
+    clearTimeout(wheelTimeout);
+
+    translate -= ev.deltaY;
+
+    if (translate > 0) {
+      translate = 0;
+    }
+    if (translate < -swiper.clientHeight) {
+      translate = -swiper.clientHeight;
+    }
+
+    trace(`DeltaY: ${ev.deltaY}, New translate: ${translate}`);
+    swiper.style.transform = `translate3d(0px, ${translate}px, 0px)`;
+    swiper.classList.add(
+      "SyncLyricsScroller_root_withVisibleScrolledLyrics__lowGE"
+    );
+    swiper
+      .querySelector(".SyncLyricsScroller_line_active__6lLvH")
+      ?.classList.remove("SyncLyricsScroller_line_active__6lLvH");
+
+    wheelTimeout = setTimeout(() => {
+      updateFullScreenLyricsProgress();
+    }, 3000);
+  });
 
   updateFullScreenLyricsProgress();
 }
@@ -520,10 +720,11 @@ async function getTrackLyrics(trackName, artistName, trackDuration) {
       return;
     }
 
+    var syncedResults = [];
     if (trackDuration && trackDuration > 0) {
-      // Если указана длина трека, то исключем из результата те треки, разница в длине которых больше 2 секунд по сравнению с действительностью
-      results = results.filter(
-        (result) => Math.abs(result.duration - trackDuration) < 2
+      // Если указана длина трека, то исключем из результата те треки, длина которых не соответсвует действительной. Полезно для синхронизированного текста
+      syncedResults = results.filter(
+        (result) => result.duration == trackDuration
       );
     }
 
@@ -534,7 +735,10 @@ async function getTrackLyrics(trackName, artistName, trackDuration) {
     }
 
     latestTrack.plainLyrics = results[0].plainLyrics;
-    latestTrack.syncedLyrics = results[0].syncedLyrics;
+    latestTrack.syncedLyrics =
+      syncedResults.length > 0
+        ? syncedResults[0].syncedLyrics
+        : results[0].syncedLyrics;
     latestTrack.artistName = results[0].artistName;
     console.log(`[ReachText] Получен текст с LRCLib:`, results[0]);
   } catch (e) {
@@ -547,7 +751,7 @@ async function getTrackLyrics(trackName, artistName, trackDuration) {
  */
 async function clearTrackLyrics() {
   latestTrack.plainLyrics = null;
-  latestTrack.syncLyrics = null;
+  latestTrack.syncedLyrics = null;
 }
 
 trace("Начало работы");
