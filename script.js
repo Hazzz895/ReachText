@@ -1,7 +1,7 @@
 /**
  * @type {boolean} Включает подробное логгирование
  */
-const traceEnabled = true;
+const traceEnabled = false;
 
 /**
  * Необходим для подробного логгирования
@@ -12,10 +12,6 @@ function trace(msg) {
     console.log(`[ReachText] [TR]: ${msg}`);
   }
 }
-
-setInterval(() => {
-  addContextMenuEventListeners();
-}, 20);
 
 /**
  * Геттеры, урпощающие получение информации о текущем треке
@@ -89,6 +85,7 @@ info.playerState.event.onChange(async (event) => {
     case "audio-ended":
     case "audio-end":
       if (!info.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
+        // Остановка анимации таймера
         document
           .querySelector(".SyncLyricsScroller_counter__B2E7K")
           ?.querySelectorAll(".SyncLyricsLoader_element___Luwv")
@@ -197,6 +194,66 @@ info.playerState.event.onChange(async (event) => {
       break;
   }
 });
+
+// setInterval(() => {
+//   addContextMenuEventListeners();
+// }, 200);
+
+
+let registeredButtons = new WeakSet();
+
+/**
+ * Добавляет обработчик нажатий на все кнопки, открывающее контекстное меню
+ */
+function addContextMenuEventListeners(root = document) {
+  root
+    .querySelectorAll(
+      '[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"]'
+    )
+    .forEach((button) => {
+      if (!registeredButtons.has(button)) {
+        button.addEventListener("mousedown", (ev) =>
+          updateContextMenuLyrics(ev.currentTarget)
+        );
+        registeredButtons.add(button);
+      }
+    });
+}
+
+// Сначала установим обработчики для уже существующих кнопок
+addContextMenuEventListeners();
+
+// Настроим наблюдатель
+// Сгенерировано Chat GPT (извините)
+const observer = new MutationObserver((mutationsList) => {
+  for (const mutation of mutationsList) {
+    if (mutation.type === "childList") {
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+
+        // Если узел — сама кнопка, — обработать
+        if (
+          node.matches?.('[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"]')
+        ) {
+          addContextMenuEventListeners(node.parentNode);
+        }
+
+        // Или если внутри есть нужные кнопки — обработать всё
+        if (node.querySelectorAll) {
+          addContextMenuEventListeners(node);
+        }
+      });
+    }
+  }
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
+
+
 
 /**
  * Удаление синхронизированного текта
@@ -342,6 +399,7 @@ async function createLyricsModal() {
     info.meta?.lyricsInfo?.hasAvailableSyncLyrics ||
     !latestTrack?.syncedLyrics
   ) {
+    trace(`Отмена создания синхронизированного текста потому что:\n1) синхронизированный текст уже предоставлен YM (${info.meta?.lyricsInfo?.hasAvailableSyncLyrics})\n2) кастомный синхронизированный текст отсутствует (${!latestTrack?.syncedLyrics})`)
     return;
   }
 
@@ -467,7 +525,6 @@ async function createLyricsModal() {
       translate = -swiper.clientHeight;
     }
 
-    trace(`DeltaY: ${ev.deltaY}, New translate: ${translate}`);
     swiper.style.transform = `translate3d(0px, ${translate}px, 0px)`;
     swiper.classList.add(
       "SyncLyricsScroller_root_withVisibleScrolledLyrics__lowGE"
@@ -508,23 +565,7 @@ function syncedLyricsToObj(syncedLyrics) {
   return result.filter((line) => line !== undefined && line.text != undefined);
 }
 
-/**
- * Добавляет обработчик нажатий на все кнопки, открывающее контекстное меню
- */
-function addContextMenuEventListeners() {
-  document
-    .querySelectorAll(
-      '[data-test-id="TRACK_CONTEXT_MENU_BUTTON"], [data-test-id="PLAYERBAR_DESKTOP_CONTEXT_MENU_BUTTON"]'
-    )
-    .forEach((button) => {
-      if (!button.hasClickEventListener) {
-        button.addEventListener("mousedown", async (ev) => {
-          await updateContextMenuLyrics(ev.currentTarget);
-        });
-        button.hasClickEventListener = true;
-      }
-    });
-}
+
 
 /**
  * Обработчик нажатия кнопки открытия контекстного меню.
@@ -537,17 +578,13 @@ async function updateContextMenuLyrics(el) {
     '[data-test-id="TRACK_CONTEXT_MENU"]'
   );
 
-  if (!contextMenu) return;
+  if (!contextMenu) {
+    return;
+  }
 
   var contextLyricsButton = document.querySelector(
     '[data-test-id="TRACK_CONTEXT_MENU_LYRICS_BUTTON"]'
   );
-
-  // Если кнопка есть, но текста нет - кнопка удаляется
-  if (contextLyricsButton && !latestTrack.plainLyrics) {
-    contextLyricsButton.remove();
-    return;
-  }
 
   if (contextLyricsButton) return;
 
@@ -707,21 +744,24 @@ function getNameAndFormat(querySelector, doc) {
  * @returns {void} Возращается при прекращении работы.
  */
 async function getTrackLyrics(trackName, artistName, trackDuration) {
-  try {
-    trace(
-      `Отправляется запрос на получение текста: ${trackName} - ${artistName} ${
-        trackDuration ? "(" + trackDuration + "s)" : "(длина песни не указана)"
-      }`
-    );
-    let plainResults = await fetch(
-      `https://lrclib.net/api/search?track_name=${trackName}&artist_name=${artistName}`
-    );
-    let results = await plainResults.json();
-    if (!results || !Array.isArray(results)) {
-      trace("Неудачная попытка получения текста");
-      clearTrackLyrics();
-      return;
+   try {
+     trace(
+       `Отправляется запрос на получение текста: ${trackName} - ${artistName} ${
+         trackDuration ? "(" + trackDuration + "s)" : "(длина песни не указана)"
+       }`
+     );
+let plainResults = await fetch(
+  `https://lrclib.net/api/search?track_name=${encodeURIComponent(trackName)}&artist_name=${encodeURIComponent(artistName)}`
+ );
+    if (!plainResults.ok) {
+      throw new Error(`HTTP error! Status: ${plainResults.status}`);
     }
+     let results = await plainResults.json();
+     if (!results || !Array.isArray(results)) {
+       trace("Неудачная попытка получения текста");
+       clearTrackLyrics();
+       return;
+     }
 
     var syncedResults = [];
     if (trackDuration && trackDuration > 0) {
