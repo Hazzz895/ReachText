@@ -86,14 +86,14 @@ class ReachText {
      */
     let wheelTimeout = null;
 
+    /**
+     * @type {WeakSet<HTMLElement>} Список кнопок, открывающих контекстное меню на которые была наложена отслежка нажатия
+     */
+    let registeredButtons = new WeakSet();
+
     ///////////////////////////////////////
     /* Логика синхронизированного текста */
     ///////////////////////////////////////
-
-    // Создание синхронизированного текста при нажатии на открытие полноэкранного режима
-    document
-      .querySelector('[data-test-id="PLAYERBAR_DESKTOP_SYNC_LYRICS_BUTTON"]')
-      ?.addEventListener("click", onLyricsButtonClick);
 
     document
       .querySelector('[data-test-id="FULLSCREEN_PLAYER_BUTTON"]')
@@ -173,8 +173,6 @@ class ReachText {
       }
     });
 
-    let registeredButtons = new WeakSet();
-
     /**
      * Добавляет обработчик нажатий на все кнопки, открывающее контекстное меню
      */
@@ -233,6 +231,10 @@ class ReachText {
         await removeLyricsModal();
       }
 
+      const lyricsButton = document.querySelector(
+        '[data-test-id="PLAYERBAR_DESKTOP_SYNC_LYRICS_BUTTON"]'
+      );
+
       if (latestTrack.syncedLyrics) {
         if (
           document.querySelector(
@@ -243,10 +245,13 @@ class ReachText {
           await createLyricsModal();
         }
         // Включаем кнопку
+        lyricsButton?.removeEventListener("click", onLyricsButtonClick);
+        lyricsButton?.addEventListener("click", onLyricsButtonClick);
         playerSyncLyricsButton.classList.add(availableButtonClass);
         playerSyncLyricsButton.removeAttribute("disabled");
       } else {
         // Выключаем кнопку
+        lyricsButton?.removeEventListener("click", onLyricsButtonClick);
         playerSyncLyricsButton.classList.remove(availableButtonClass);
         playerSyncLyricsButton.setAttribute("disabled", "true");
       }
@@ -341,17 +346,29 @@ class ReachText {
         ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
       );
 
-      //Применение анимации
+      // Применение анимации
       player.classList.add(
         "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
       );
 
+      // Если интро длится больше 5 сек (5000 миллисекунд), то включаем цифровой таймер
+      let enableDigitTimer = lyricsLines[0].timestamp > 5000;
+
       let nextLineIndex = 0;
+
       if (position > lyricsLines[0].timestamp / 1000) {
+        swiper.parentElement.classList.remove(
+          "SyncLyricsScroller_root_intro__13gls"
+        );
+        swiper.parentElement.classList.remove(
+          "SyncLyricsScroller_root_withVisibleUpperLyrics__d7noO"
+        );
+
         nextLineIndex = lyricsLines.findIndex(
           (line) => line.timestamp / 1000 > position
         );
 
+        // Если следующая строчка не найдена, устанавливаем индекс больше последнего индекса (т.к оно является индексом следующей строчки, которой не существует в текущей позиции)
         if (nextLineIndex < 0) {
           if (
             position >=
@@ -364,22 +381,20 @@ class ReachText {
           }
         }
       } else {
-        swiper.classList.add("SyncLyricsScroller_root_intro__13gl");
+        swiper.parentElement.classList.add(
+          "SyncLyricsScroller_root_intro__13gls"
+        );
+        swiper.parentElement.classList.add(
+          "SyncLyricsScroller_root_withVisibleUpperLyrics__d7noO"
+        );
+
+        // Время до окончания интро
+        var ms = lyricsLines[0].timestamp - position * 1000;
         if (!counter) {
-          // Создаем таймер до начала текста
-          counter = createElementFromHTML(
-            '<div class="swiper-slide swiper-slide-active SyncLyricsScroller_counter__B2E7K FullscreenPlayerDesktopContent_syncLyricsCounter__CnB_k" style="margin-bottom: 32px;"><div class="SyncLyricsLoader_root__I2hTe"><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.275s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.55s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.825s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 1.1s; animation-duration: 1.1s, 1.1s;"></div></div></div>'
-          );
-
-          if (info.playerState?.status?.value == "paused") {
-            counter
-              .querySelectorAll(".SyncLyricsLoader_element___Luwv")
-              .forEach((pointEl) =>
-                pointEl.classList.add("SyncLyricsLoader_element_paused__LFpD0")
-              );
-          }
-
+          counter = createCounter(ms, enableDigitTimer);
           swiper.insertBefore(counter, swiper.firstChild);
+        } else {
+          counter.replaceWith(createCounter(ms, enableDigitTimer));
         }
       }
 
@@ -434,11 +449,23 @@ class ReachText {
       swiper.style.transform = `translate3d(0px, ${translate}px, 0px)`;
 
       if (nextLyricsLine) {
-        let timeoutDelay = (nextLyricsLine.timestamp / 1000 - position) * 1000;
+        var timeoutDelay =
+          (nextLyricsLine?.timestamp - position * 1000) /
+          (player?.state?.currentMediaPlayer?.value?.audioPlayerState?.speed
+            ?.value ?? 1);
+
+        if (enableDigitTimer && position < lyricsLines[0].timestamp / 1000) {
+          var timeoutDelay = ms > 3000 ? timeoutDelay - 3000 : ms % 1000;
+        }
+
         timeout = setTimeout(updateFullScreenLyricsProgress, timeoutDelay);
       }
     }
 
+    /**
+     * Вызывается при нажатии на кнопку открытия синхронизированного текста
+     * @returns {Promise<void>} Возращается при завершении работы.
+     */
     async function onLyricsButtonClick() {
       syncLyricsOpened = true;
 
@@ -451,6 +478,38 @@ class ReachText {
       );
       fullScreenButton.click();
       await createLyricsModal();
+    }
+
+    /**
+     * Создает таймер синхронизированного текста.
+     * @param {number} ms Время до окончания интро.
+     * @param {boolean} enableDigitTimer Использовать ли цифровой таймер.
+     * @returns {Node} Таймер синхронизированного текста.
+     */
+    function createCounter(ms, enableDigitTimer) {
+      var counterParent = createElementFromHTML(
+        '<div class="swiper-slide swiper-slide-active SyncLyricsScroller_counter__B2E7K FullscreenPlayerDesktopContent_syncLyricsCounter__CnB_k" style="margin-bottom: 32px;"></div>'
+      );
+      if (ms > 3000 || !enableDigitTimer) {
+        var counter = createElementFromHTML(
+          '<div class="SyncLyricsLoader_root__I2hTe"><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.275s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.55s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 0.825s; animation-duration: 1.1s, 1.1s;"></div><div class="SyncLyricsLoader_element___Luwv SyncLyricsLoader_element_withDefaultElement__WmP80" style="animation-delay: 1.1s; animation-duration: 1.1s, 1.1s;"></div></div>'
+        );
+
+        if (info.playerState?.status?.value == "paused") {
+          counter
+            .querySelectorAll(".SyncLyricsLoader_element___Luwv")
+            .forEach((pointEl) =>
+              pointEl.classList.add("SyncLyricsLoader_element_paused__LFpD0")
+            );
+        }
+      } else {
+        var counter = createElementFromHTML(
+          '<span class="SyncLyricsLine_root__r62BN SyncLyricsScroller_counterLine__NpBT4"></span>'
+        );
+        counter.textContent = (Math.floor(ms / 1000) + 1).toString();
+      }
+      counterParent.appendChild(counter);
+      return counterParent;
     }
 
     /**
@@ -651,7 +710,10 @@ class ReachText {
       // Ищем родителя с метаданными
       do {
         trackContainer = trackContainer.parentElement;
-      } while (trackContainer && trackContainer.querySelector(".Meta_title__GGBnH") == null);
+      } while (
+        trackContainer &&
+        !trackContainer.querySelector(".Meta_title__GGBnH")
+      );
 
       var trackName = getNameAndFormat(".Meta_title__GGBnH", trackContainer);
 
@@ -687,7 +749,16 @@ class ReachText {
 
         contextMenu.style.opacity = 0;
         await delay(250);
-        contextMenu.remove();
+        let uiPortal = contextMenu;
+        do {
+          uiPortal = uiPortal.parentElement;
+        } while (uiPortal && !uiPortal.getAttribute("data-floating-ui-portal"));
+
+        if (!uiPortal) {
+          uiPortal = contextMenu;
+        }
+
+        uiPortal.remove();
       });
 
       contextMenu.insertBefore(
@@ -816,7 +887,9 @@ class ReachText {
           )}&artist_name=${encodeURIComponent(artistName)}`
         );
         if (!plainResults.ok) {
-          throw new Error(`[ReachText] Ошибка сети: Не удалось подключится в LRCLib API. Status: ${plainResults.status}`);
+          throw new Error(
+            `[ReachText] Ошибка сети: Не удалось подключится в LRCLib API. Status: ${plainResults.status}`
+          );
         }
         let results = await plainResults.json();
         if (!results || !Array.isArray(results)) {
