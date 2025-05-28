@@ -753,7 +753,6 @@ class ReachText {
 
         do {
           if (uiPortal.getAttribute("data-floating-ui-portal") != null) {
-            console.log('atttt', uiPortal);
             break;
           }
           uiPortal = uiPortal.parentElement;
