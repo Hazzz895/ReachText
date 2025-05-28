@@ -449,13 +449,13 @@ class ReachText {
       swiper.style.transform = `translate3d(0px, ${translate}px, 0px)`;
 
       if (nextLyricsLine) {
-        var timeoutDelay =
+        let timeoutDelay =
           (nextLyricsLine?.timestamp - position * 1000) /
           (player?.state?.currentMediaPlayer?.value?.audioPlayerState?.speed
             ?.value ?? 1);
 
         if (enableDigitTimer && position < lyricsLines[0].timestamp / 1000) {
-          var timeoutDelay = ms > 3000 ? timeoutDelay - 3000 : ms % 1000;
+          timeoutDelay = ms > 3000 ? timeoutDelay - 3000 : ms % 1000;
         }
 
         timeout = setTimeout(updateFullScreenLyricsProgress, timeoutDelay);
@@ -750,9 +750,14 @@ class ReachText {
         contextMenu.style.opacity = 0;
         await delay(250);
         let uiPortal = contextMenu;
+
         do {
+          if (uiPortal.getAttribute("data-floating-ui-portal") != null) {
+            console.log('atttt', uiPortal);
+            break;
+          }
           uiPortal = uiPortal.parentElement;
-        } while (uiPortal && !uiPortal.getAttribute("data-floating-ui-portal"));
+        } while (uiPortal);
 
         if (!uiPortal) {
           uiPortal = contextMenu;
