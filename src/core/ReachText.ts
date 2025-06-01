@@ -123,11 +123,12 @@ export class ReachText extends SingletonBase {
         this._processingTrackTitle = trackName;
 
         // Если указаны все метаданные трека, то используется прямое получение песни. Таким образом результат будет самым точным.
-        if (trackName && artistName && trackDuration && albumName) {
+        // Отключено т.к, как оказалось, это наоборот уменьшает точность результата.🫡
+        if (false/*trackName && artistName && trackDuration && albumName*/) {
             var results = await fetch(
                 `https://lrclib.net/api/get?artist_name=${encodeURIComponent(
-                    artistName
-                )}&track_name=${encodeURIComponent(trackName)}&duration=${trackDuration}&album_name=${encodeURIComponent(albumName)}`);
+                    artistName!
+                )}&track_name=${encodeURIComponent(trackName)}&duration=${trackDuration}&album_name=${encodeURIComponent(albumName!)}`);
 
             // /api/get возращает единственный результат, так что фильтрация в отличии от /api/search не необходима
             const json = await results.json();
@@ -140,25 +141,26 @@ export class ReachText extends SingletonBase {
                     trackName
                 )}&artist_name=${encodeURIComponent(artistName!)}`);
 
-            const json = await results.json();
+            let json = await results.json();
 
             if (!json || !Array.isArray(json) || json.length === 0) {
-                this._processingTrackTitle = null;   // guarantee release
+                this._processingTrackTitle = null;  
                 return null;
             }
 
+            json = json.filter((result: any) => result.instrumental == false);
             var result = json[0];
 
             if (trackDuration && trackDuration > 0) {
                 // Если указана длина трека, то исключем из результата те треки, длина которых не соответсвует действительной. Полезно для синхронизированного текста
                 const resultsWithRequestedDuration = json.filter(
-                    (result) => result.duration == trackDuration
+                    (result: any) => result.duration == trackDuration
                 );
 
                 if (resultsWithRequestedDuration.length > 0) {
                     // В приоритете те песни, у которых есть синхронизированный текст, ...
                     const preResult = json.find(
-                        (result) => result.syncedLyrics != null && result.syncedLyrics != undefined
+                        (result: any) => result.syncedLyrics != null && result.syncedLyrics != undefined
                     );
 
                     // ... если таковые не найдены, то берем первый результат с запрашиваемой длиной
@@ -180,7 +182,7 @@ export class ReachText extends SingletonBase {
             // Изменяем текст трека для корректного получения кэша
             lyrics.trackName = trackName;
 
-            console.log('[ReachText] Текст успешно полчен: ', lyrics);
+            console.log('[ReachText] Текст успешно получен: ', lyrics);
             this.cachedTrackLyrics.push(lyrics);
             this.latestTrackLyrics = lyrics;
         }

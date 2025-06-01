@@ -1060,7 +1060,7 @@
         }
       }
       this._processingTrackTitle = trackName;
-      if (trackName && artistName && trackDuration && albumName) {
+      if (false) {
         var results = await fetch(
           `https://lrclib.net/api/get?artist_name=${encodeURIComponent(
             artistName
@@ -1074,11 +1074,12 @@
             trackName
           )}&artist_name=${encodeURIComponent(artistName)}`
         );
-        const json = await results.json();
+        let json = await results.json();
         if (!json || !Array.isArray(json) || json.length === 0) {
           this._processingTrackTitle = null;
           return null;
         }
+        json = json.filter((result2) => result2.instrumental == false);
         var result = json[0];
         if (trackDuration && trackDuration > 0) {
           const resultsWithRequestedDuration = json.filter(
@@ -1100,7 +1101,7 @@
       if (this._processingTrackTitle === trackName) {
         this._processingTrackTitle = null;
         lyrics.trackName = trackName;
-        console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0447\u0435\u043D: ", lyrics);
+        console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D: ", lyrics);
         this.cachedTrackLyrics.push(lyrics);
         this.latestTrackLyrics = lyrics;
       }
