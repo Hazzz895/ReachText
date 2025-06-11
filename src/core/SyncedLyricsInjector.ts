@@ -1,7 +1,6 @@
 import { HtmlDefenetions, QueryConstants } from "../helpers/Constants";
 import { Helpers } from "../helpers/Helpers";
 import { InjectorBase } from "../helpers/InjectorBase";
-import { ReachText } from "./ReachText";
 import { TrackLyrics } from "./TrackLyrics";
 
 /**
@@ -31,10 +30,10 @@ export class SyncedLyricsInjector extends InjectorBase {
      */
     private wheelTimeout: number | null = null;
 
-        /**
-     * Таймаут для показа прошедшего синхронизированного текста ри прокрутке
-     * @type {number | null}
-     */
+    /**
+ * Таймаут для показа прошедшего синхронизированного текста ри прокрутке
+ * @type {number | null}
+ */
     private hoverTimeout: number | null = null;
 
     /**
@@ -53,7 +52,20 @@ export class SyncedLyricsInjector extends InjectorBase {
                 this.syncLyricsOpened = false;
             });
 
-        // Подписка не эвенты плеера
+        this.tryInject();
+    }
+
+    /**
+     * Попытка подписаться на события плеера.
+     * Если плеер еще не инициализирован, то будут повторные попытки каждые 100 миллисекунд.
+     * @returns {void}
+     */
+    private tryInject(): void {
+        if (window.player == null) {
+            setTimeout(this.tryInject, 100);
+            return;
+        }
+
         Helpers.playerState.event.onChange(async (event: string) => {
             if (!window.player) {
                 return;
@@ -125,12 +137,12 @@ export class SyncedLyricsInjector extends InjectorBase {
         }
     }
 
-        /**
-     * Вызывается при остановке трека трека
-     * @see {@link SyncedLyricsInjector.inject}
-     * @returns {Promise<void>}
-     */
-    private async audioPaused(): Promise<void>{
+    /**
+ * Вызывается при остановке трека трека
+ * @see {@link SyncedLyricsInjector.inject}
+ * @returns {Promise<void>}
+ */
+    private async audioPaused(): Promise<void> {
         if (!Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
             // Остановка анимации таймера
             document
@@ -148,7 +160,7 @@ export class SyncedLyricsInjector extends InjectorBase {
 
 
     private async getTrackLyrics(): Promise<void> {
-                var trackName = Helpers.meta?.title;
+        var trackName = Helpers.meta?.title;
         var artistName = Helpers.meta?.artists
             ?.map((artist: any) => artist.name)
             .join(", ");
@@ -173,11 +185,11 @@ export class SyncedLyricsInjector extends InjectorBase {
         }
     }
 
-        /**
-     * Вызывается после загрузки трека
-     * @see {@link SyncedLyricsInjector.inject}
-     * @returns {Promise<void>}
-     */
+    /**
+ * Вызывается после загрузки трека
+ * @see {@link SyncedLyricsInjector.inject}
+ * @returns {Promise<void>}
+ */
     private async audioCanPlay(): Promise<void> {
         clearTimeout(this.timeout!);
 
@@ -257,10 +269,10 @@ export class SyncedLyricsInjector extends InjectorBase {
      */
     private readonly digitTimerOffset: number = 5000;
 
-        /**
-     * Обновление синхронизированного текста
-     * @returns {Promise<void>}
-     */
+    /**
+ * Обновление синхронизированного текста
+ * @returns {Promise<void>}
+ */
     private async updateFullScreenLyricsProgress(): Promise<void> {
         var position: number = Helpers.progress?.position;
         var swiper = document.querySelector(".swiper-wrapper") as HTMLElement;
@@ -268,18 +280,21 @@ export class SyncedLyricsInjector extends InjectorBase {
 
         // Если нужно обновить синхронизированный текст, но нечего обновлять - создаем текст
         if (
-            !swiper &&
-            !Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics &&
-            this.syncLyricsOpened
+            !swiper
         ) {
-            await this.createLyricsModal();
-            return this.updateFullScreenLyricsProgress();
+            if (!Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics &&
+                this.syncLyricsOpened) {
+                await this.createLyricsModal();
+                return this.updateFullScreenLyricsProgress();
+            } else {
+                return;
+            }
         }
 
         const syncedLyrics = this.addon.latestTrackLyrics?.syncedLyrics;
 
         if (!syncedLyrics) {
- return;
+            return;
         }
 
         if (this.timeout) {
@@ -610,7 +625,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     /**
      * Удаление синхронизированного текта
      */
-    private removeLyricsModal():void {
+    private removeLyricsModal(): void {
         if (this.timeout) clearTimeout(this.timeout);
         if (this.hoverTimeout) clearTimeout(this.hoverTimeout);
         if (this.wheelTimeout) clearTimeout(this.wheelTimeout);

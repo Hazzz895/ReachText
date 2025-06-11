@@ -389,6 +389,18 @@
       document.querySelector('[data-test-id="FULLSCREEN_PLAYER_BUTTON"]')?.addEventListener("click", () => {
         this.syncLyricsOpened = false;
       });
+      this.tryInject();
+    }
+    /**
+     * Попытка подписаться на события плеера.
+     * Если плеер еще не инициализирован, то будут повторные попытки каждые 100 миллисекунд.
+     * @returns {void}
+     */
+    tryInject() {
+      if (window.player == null) {
+        setTimeout(this.tryInject, 100);
+        return;
+      }
       Helpers.playerState.event.onChange(async (event) => {
         if (!window.player) {
           return;
@@ -540,9 +552,13 @@
       var position = Helpers.progress?.position;
       var swiper = document.querySelector(".swiper-wrapper");
       var counter = document.querySelector(".SyncLyricsScroller_counter__B2E7K");
-      if (!swiper && !Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics && this.syncLyricsOpened) {
-        await this.createLyricsModal();
-        return this.updateFullScreenLyricsProgress();
+      if (!swiper) {
+        if (!Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics && this.syncLyricsOpened) {
+          await this.createLyricsModal();
+          return this.updateFullScreenLyricsProgress();
+        } else {
+          return;
+        }
       }
       const syncedLyrics = this.addon.latestTrackLyrics?.syncedLyrics;
       if (!syncedLyrics) {
@@ -1035,8 +1051,8 @@
       }
     }
     /**
-     * Метод для получения текста песни.
-     * @param {string} trackName - Название песни.
+     * Метод для получения текста трека.
+     * @param {string} trackName - Название трека.
      * @param {string | null} artistName - Имя исполнителя.
      * @param {number | null} trackDuration - Длительность песни. (синхронизированный текст)
      * @param {string | null} albumName - Название альбома. (синхронизированный текст)
@@ -1048,7 +1064,7 @@
         return null;
       }
       const cachedTrackLyrics = this.cachedTrackLyrics.find(
-        (track) => track.trackName === trackName && track.artistName === artistName && (albumName ? track.albumName === albumName : true)
+        (track) => track.trackName === trackName && track.artistName === artistName
       );
       if (cachedTrackLyrics) {
         this.latestTrackLyrics = cachedTrackLyrics;
@@ -1058,6 +1074,7 @@
         while (this._processingTrackTitle === trackName) {
           await Helpers.delay(100);
         }
+        return await this.getTrackLyrics(trackName, artistName, trackDuration, albumName);
       }
       this._processingTrackTitle = trackName;
       if (false) {
@@ -1076,10 +1093,14 @@
         );
         let json = await results.json();
         if (!json || !Array.isArray(json) || json.length === 0) {
-          this._processingTrackTitle = null;
+          this.stopProcessingTrack(trackName, artistName, null);
           return null;
         }
         json = json.filter((result2) => result2.instrumental == false);
+        if (json.length === 0) {
+          this.stopProcessingTrack(trackName, artistName, null);
+          return null;
+        }
         var result = json[0];
         if (trackDuration && trackDuration > 0) {
           const resultsWithRequestedDuration = json.filter(
@@ -1098,15 +1119,28 @@
         }
       }
       const lyrics = TrackLyrics.fromJson(result);
-      if (this._processingTrackTitle === trackName) {
-        this._processingTrackTitle = null;
-        lyrics.trackName = trackName;
-        console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D: ", lyrics);
+      console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D: ", lyrics);
+      this.stopProcessingTrack(trackName, artistName, lyrics);
+      return lyrics;
+    }
+    /**
+     * Метод который должен быть вызван после того как получен результат с LRCLib
+     * @param {string} trackName - Название трека.
+     * @param {string | null} artistName - Имя исполнителя.
+     * @param {TrackLyrics | null} lyrics - Текст трека.
+     */
+    stopProcessingTrack(trackName, artistName, lyrics) {
+      if (!lyrics) {
+        lyrics = new TrackLyrics(null, trackName, artistName, null, null, false, null, null);
+      }
+      lyrics.trackName = trackName;
+      if (!this.cachedTrackLyrics.find((track) => track.trackName === trackName && track.artistName === artistName)) {
         this.cachedTrackLyrics.push(lyrics);
+      }
+      if (this._processingTrackTitle === trackName) {
         this.latestTrackLyrics = lyrics;
       }
       this._processingTrackTitle = null;
-      return lyrics;
     }
   };
 

@@ -86,8 +86,8 @@ export class ReachText extends SingletonBase {
     private _processingTrackTitle: string | null = null;
 
     /**
-     * Метод для получения текста песни.
-     * @param {string} trackName - Название песни.
+     * Метод для получения текста трека.
+     * @param {string} trackName - Название трека.
      * @param {string | null} artistName - Имя исполнителя.
      * @param {number | null} trackDuration - Длительность песни. (синхронизированный текст)
      * @param {string | null} albumName - Название альбома. (синхронизированный текст)
@@ -103,8 +103,7 @@ export class ReachText extends SingletonBase {
         const cachedTrackLyrics = this.cachedTrackLyrics.find(
             track =>
                 track.trackName === trackName &&
-                track.artistName === artistName &&
-                (albumName ? track.albumName === albumName : true)
+                track.artistName === artistName
         );
 
         // Если текст найден в кеше, то возвращаем его
@@ -117,6 +116,7 @@ export class ReachText extends SingletonBase {
             while (this._processingTrackTitle === trackName) {
                 await Helpers.delay(100);
             }
+            return await this.getTrackLyrics(trackName, artistName, trackDuration, albumName);
         }
 
         // Устанавливаем то какой трек сейчас обрабатывается
@@ -144,11 +144,17 @@ export class ReachText extends SingletonBase {
             let json = await results.json();
 
             if (!json || !Array.isArray(json) || json.length === 0) {
-                this._processingTrackTitle = null;  
+                this.stopProcessingTrack(trackName, artistName, null);
                 return null;
             }
 
             json = json.filter((result: any) => result.instrumental == false);
+
+            if (json.length === 0) {
+                this.stopProcessingTrack(trackName, artistName, null);
+                return null;
+            }
+
             var result = json[0];
 
             if (trackDuration && trackDuration > 0) {
@@ -176,19 +182,33 @@ export class ReachText extends SingletonBase {
 
         const lyrics = TrackLyrics.fromJson(result);
 
-        if (this._processingTrackTitle === trackName) {
-            this._processingTrackTitle = null;
+        console.log('[ReachText] Текст успешно получен: ', lyrics);
+        this.stopProcessingTrack(trackName, artistName, lyrics);
 
-            // Изменяем текст трека для корректного получения кэша
-            lyrics.trackName = trackName;
+        return lyrics;
+    }
 
-            console.log('[ReachText] Текст успешно получен: ', lyrics);
+    /**
+     * Метод который должен быть вызван после того как получен результат с LRCLib
+     * @param {string} trackName - Название трека.
+     * @param {string | null} artistName - Имя исполнителя.
+     * @param {TrackLyrics | null} lyrics - Текст трека.
+     */
+    private stopProcessingTrack(trackName: string, artistName: string | null, lyrics: TrackLyrics | null) {
+        if (!lyrics) {
+            lyrics = new TrackLyrics(null, trackName, artistName, null, null, false, null, null);
+        }
+
+        lyrics.trackName = trackName;
+
+        if (!this.cachedTrackLyrics.find(track => track.trackName === trackName && track.artistName === artistName)) {
             this.cachedTrackLyrics.push(lyrics);
+        }
+
+        if (this._processingTrackTitle === trackName) {
             this.latestTrackLyrics = lyrics;
         }
 
         this._processingTrackTitle = null;
-
-        return lyrics;
     }
 }

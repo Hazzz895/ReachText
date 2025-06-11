@@ -52,13 +52,16 @@ export abstract class Helpers {
         return window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState
             ?.progress?.value;
     }
+    
     public static get meta(): any {
         return window?.player?.state?.queueState?.currentEntity?.value?.entity
             ?.entityData?.meta;
     }
+
     public static get playerState(): { status: { value: string }, event: any } {
         return window?.player?.state?.playerState;
     }
+
     public static get status(): string {
         return window?.player?.state?.currentMediaPlayer?.value
             ?.audioPlayerState?.status?.observableValue?.value;
