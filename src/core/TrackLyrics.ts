@@ -14,7 +14,7 @@ export class TrackLyrics {
      */
     public static parseSyncedLyrics(plainSyncedLyrics: string): SyncedLyricsLine[] {
         const result = plainSyncedLyrics.split("\n").map((line) => {
-            const match = line.match(/\[(\d{2}):(\d{2}).(\d{2})\] (.+)/);
+            const match = line.match(/\[(\d{2}):(\d{2}).(\d{2})\] (.*)/);
             if (match) {
                 const minutes = parseInt(match[1]);
                 const seconds = parseInt(match[2]);
@@ -26,7 +26,7 @@ export class TrackLyrics {
         });
 
         return (result.filter(
-            (line) => line?.text != undefined
+            (line) => line != undefined
         )) as SyncedLyricsLine[];
     }
 

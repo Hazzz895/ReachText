@@ -950,7 +950,7 @@
      */
     static parseSyncedLyrics(plainSyncedLyrics) {
       const result = plainSyncedLyrics.split("\n").map((line) => {
-        const match = line.match(/\[(\d{2}):(\d{2}).(\d{2})\] (.+)/);
+        const match = line.match(/\[(\d{2}):(\d{2}).(\d{2})\] (.*)/);
         if (match) {
           const minutes = parseInt(match[1]);
           const seconds = parseInt(match[2]);
@@ -960,7 +960,7 @@
         }
       });
       return result.filter(
-        (line) => line?.text != void 0
+        (line) => line != void 0
       );
     }
     static fromJson(json) {
