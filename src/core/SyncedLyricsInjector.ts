@@ -241,6 +241,7 @@ export class SyncedLyricsInjector extends InjectorBase {
         }
     }
 
+
     /**
      * Вызывается при нажатии на кнопку открытия синхронизированного текста
      * @returns {Promise<void>} Возращается при завершении работы.
@@ -319,6 +320,9 @@ export class SyncedLyricsInjector extends InjectorBase {
         // Применение анимации
         player.classList.add(
             "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
+        );
+        player.classList.remove(
+            "FullscreenPlayerDesktopContent_fullscreenContent_leave__6HeZ_"
         );
 
         // Если интро длится больше 5 сек (5000 миллисекунд), то включаем цифровой таймер
@@ -543,7 +547,7 @@ export class SyncedLyricsInjector extends InjectorBase {
             ".swiper-wrapper"
         ) as HTMLElement;
 
-        const swiiperFirstChild = swiper.firstChild;
+        const swiperFirstChild = swiper.firstChild;
 
         let i = 0;
         this.addon.latestTrackLyrics?.syncedLyrics.forEach((line) => {
@@ -563,7 +567,7 @@ export class SyncedLyricsInjector extends InjectorBase {
                 clearTimeout(this.wheelTimeout!);
                 window.player.setProgress(line.timestamp / 1000);
             });
-            swiper.insertBefore(line.element, swiiperFirstChild);
+            swiper.insertBefore(line.element, swiperFirstChild);
 
             if (i == 0) {
                 line.element.classList.add("swiper-slide-next");
@@ -589,7 +593,8 @@ export class SyncedLyricsInjector extends InjectorBase {
 
         Helpers.setCustom(swiper, true);
 
-        swiper.addEventListener("wheel", (event: Event) => {
+
+        lyricsContainer.addEventListener("wheel", (event: Event) => {
             const ev = event as WheelEvent;
 
             ev.preventDefault();
@@ -635,10 +640,15 @@ export class SyncedLyricsInjector extends InjectorBase {
         document
             .querySelector(".FullscreenPlayerDesktopContent_syncLyrics__6dTfH")
             ?.remove();
-        document
+        var content = document
             .querySelector(".FullscreenPlayerDesktopContent_fullscreenContent__Nvety")
-            ?.classList.remove(
-                "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
-            );
+        if (content) {
+            content?.classList.remove(
+                    "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
+                );
+            content?.classList.add(
+                "FullscreenPlayerDesktopContent_fullscreenContent_leave__6HeZ_"
+            )
+            }
     }
 }

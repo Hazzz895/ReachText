@@ -581,6 +581,9 @@
       player.classList.add(
         "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
       );
+      player.classList.remove(
+        "FullscreenPlayerDesktopContent_fullscreenContent_leave__6HeZ_"
+      );
       let enableDigitTimer = syncedLyrics[0].timestamp > this.digitTimerOffset;
       let nextLineIndex = 0;
       var ms;
@@ -738,7 +741,7 @@
       const swiper = lyricsContainer.querySelector(
         ".swiper-wrapper"
       );
-      const swiiperFirstChild = swiper.firstChild;
+      const swiperFirstChild = swiper.firstChild;
       let i = 0;
       this.addon.latestTrackLyrics?.syncedLyrics.forEach((line) => {
         line.element = HtmlDefenetions.SYNCED_LYRICS_LINE;
@@ -753,7 +756,7 @@
           clearTimeout(this.wheelTimeout);
           window.player.setProgress(line.timestamp / 1e3);
         });
-        swiper.insertBefore(line.element, swiiperFirstChild);
+        swiper.insertBefore(line.element, swiperFirstChild);
         if (i == 0) {
           line.element.classList.add("swiper-slide-next");
         }
@@ -773,7 +776,7 @@
         }, 3e3);
       });
       Helpers.setCustom(swiper, true);
-      swiper.addEventListener("wheel", (event) => {
+      lyricsContainer.addEventListener("wheel", (event) => {
         const ev = event;
         ev.preventDefault();
         clearTimeout(this.timeout);
@@ -805,9 +808,15 @@
       if (this.wheelTimeout) clearTimeout(this.wheelTimeout);
       this.timeout = this.hoverTimeout = this.wheelTimeout = null;
       document.querySelector(".FullscreenPlayerDesktopContent_syncLyrics__6dTfH")?.remove();
-      document.querySelector(".FullscreenPlayerDesktopContent_fullscreenContent__Nvety")?.classList.remove(
-        "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
-      );
+      var content = document.querySelector(".FullscreenPlayerDesktopContent_fullscreenContent__Nvety");
+      if (content) {
+        content?.classList.remove(
+          "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
+        );
+        content?.classList.add(
+          "FullscreenPlayerDesktopContent_fullscreenContent_leave__6HeZ_"
+        );
+      }
     }
   };
 
@@ -1074,47 +1083,42 @@
         while (this._processingTrackTitle === trackName) {
           await Helpers.delay(100);
         }
-        return await this.getTrackLyrics(trackName, artistName, trackDuration, albumName);
+        return await this.getTrackLyrics(
+          trackName,
+          artistName,
+          trackDuration,
+          albumName
+        );
       }
       this._processingTrackTitle = trackName;
-      if (false) {
-        var results = await fetch(
-          `https://lrclib.net/api/get?artist_name=${encodeURIComponent(
-            artistName
-          )}&track_name=${encodeURIComponent(trackName)}&duration=${trackDuration}&album_name=${encodeURIComponent(albumName)}`
+      var results = await fetch(
+        `https://lrclib.net/api/search?track_name=${encodeURIComponent(
+          trackName
+        )}&artist_name=${encodeURIComponent(artistName)}`
+      );
+      let json = await results.json();
+      if (!json || !Array.isArray(json) || json.length === 0) {
+        this.stopProcessingTrack(trackName, artistName, null);
+        return null;
+      }
+      json = json.filter((result2) => result2.instrumental == false);
+      if (json.length === 0) {
+        this.stopProcessingTrack(trackName, artistName, null);
+        return null;
+      }
+      var result = json[0];
+      if (trackDuration && trackDuration > 0) {
+        const resultsWithRequestedDuration = json.filter(
+          (result2) => result2.duration == trackDuration
         );
-        const json = await results.json();
-        var result = json;
-      } else {
-        var results = await fetch(
-          `https://lrclib.net/api/search?track_name=${encodeURIComponent(
-            trackName
-          )}&artist_name=${encodeURIComponent(artistName)}`
-        );
-        let json = await results.json();
-        if (!json || !Array.isArray(json) || json.length === 0) {
-          this.stopProcessingTrack(trackName, artistName, null);
-          return null;
-        }
-        json = json.filter((result2) => result2.instrumental == false);
-        if (json.length === 0) {
-          this.stopProcessingTrack(trackName, artistName, null);
-          return null;
-        }
-        var result = json[0];
-        if (trackDuration && trackDuration > 0) {
-          const resultsWithRequestedDuration = json.filter(
-            (result2) => result2.duration == trackDuration
+        if (resultsWithRequestedDuration.length > 0) {
+          const preResult = json.find(
+            (result2) => result2.syncedLyrics != null && result2.syncedLyrics != void 0
           );
-          if (resultsWithRequestedDuration.length > 0) {
-            const preResult = json.find(
-              (result2) => result2.syncedLyrics != null && result2.syncedLyrics != void 0
-            );
-            if (!preResult) {
-              result = resultsWithRequestedDuration[0];
-            } else {
-              result = preResult;
-            }
+          if (!preResult) {
+            result = resultsWithRequestedDuration[0];
+          } else {
+            result = preResult;
           }
         }
       }
@@ -1131,10 +1135,21 @@
      */
     stopProcessingTrack(trackName, artistName, lyrics) {
       if (!lyrics) {
-        lyrics = new TrackLyrics(null, trackName, artistName, null, null, false, null, null);
+        lyrics = new TrackLyrics(
+          null,
+          trackName,
+          artistName,
+          null,
+          null,
+          false,
+          null,
+          null
+        );
       }
       lyrics.trackName = trackName;
-      if (!this.cachedTrackLyrics.find((track) => track.trackName === trackName && track.artistName === artistName)) {
+      if (!this.cachedTrackLyrics.find(
+        (track) => track.trackName === trackName && track.artistName === artistName
+      )) {
         this.cachedTrackLyrics.push(lyrics);
       }
       if (this._processingTrackTitle === trackName) {
