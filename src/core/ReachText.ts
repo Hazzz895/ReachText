@@ -177,8 +177,8 @@ export class ReachText extends SingletonBase {
     }
 
     const lyrics = TrackLyrics.fromJson(result);
+    if (lyrics) console.log("[ReachText] Текст успешно получен: ", lyrics);
 
-    console.log("[ReachText] Текст успешно получен: ", lyrics);
     this.stopProcessingTrack(trackName, artistName, lyrics);
 
     return lyrics;
@@ -217,6 +217,8 @@ export class ReachText extends SingletonBase {
       )
     ) {
       this.cachedTrackLyrics.push(lyrics);
+
+      if (!lyrics.id) console.log("[ReachText] Текст трека не найден");
     }
 
     if (this._processingTrackTitle === trackName) {

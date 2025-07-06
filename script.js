@@ -35,6 +35,18 @@
         i++;
       }
     }
+    /**
+     * Возвращает первый элемент, соответствующий указанному селектору, сначала проверяя сам элемент,
+     * затем его потомков, если сам элемент не подходит.
+     *
+     * @param element Корневой элемент, с которого начинается поиск.
+     * @param selector CSS-селектор для поиска среди элемента и его потомков.
+     * @returns Первый найденный элемент или `null`, если совпадений нет.
+     */
+    static querySelectorIncludingSelf(element, selector) {
+      if (element.matches?.(selector)) return element;
+      return element.querySelector?.(selector);
+    }
     static get progress() {
       return window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.progress?.value;
     }
@@ -519,12 +531,14 @@
         playerSyncLyricsButton?.classList.add(availableButtonClass);
         playerSyncLyricsButton?.removeAttribute("disabled");
       } else {
-        playerSyncLyricsButton?.removeEventListener(
-          "click",
-          this.onLyricsButtonClick
-        );
-        playerSyncLyricsButton?.classList.remove(availableButtonClass);
-        playerSyncLyricsButton?.setAttribute("disabled", "true");
+        if (false) {
+          playerSyncLyricsButton?.removeEventListener(
+            "click",
+            this.onLyricsButtonClick
+          );
+          playerSyncLyricsButton?.classList.remove(availableButtonClass);
+          playerSyncLyricsButton?.setAttribute("disabled", "true");
+        }
       }
     }
     /**
@@ -832,46 +846,33 @@
      * @inheritdoc
      */
     inject() {
-      const observer = new MutationObserver((mutationsList) => {
-        for (const mutation of mutationsList) {
-          if (mutation.type === "childList" || mutation.type === "characterData") {
-            mutation.addedNodes.forEach(async (node) => {
-              if (!(node instanceof HTMLElement)) return;
-              if (node.matches?.('[data-test-id="ENTITY_HEADER"]')) {
-                await this.createLyricsModalInTrackInfo(
-                  node.parentElement.parentElement
-                );
-              } else {
-                const modal = node.querySelector?.(
-                  ".TrackModal_modalContent__AzQPF"
-                );
-                if (modal) {
-                  await this.createLyricsModalInTrackInfo(modal);
-                }
-              }
-            });
-          }
-        }
+      const observer = new MutationObserver(async (_mutationsList) => {
+        const root = document.querySelector(".TrackModal_modalContent__AzQPF");
+        console.log(root);
       });
       observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        attributes: true,
+        characterData: true
       });
     }
     /**
      * Обновляет модальное окно информации о треке добавляя в него текст трека
-     * @param {HTMLElement} root Элемент TrackModal_content__9qH7W
+     * @param {Element} root Элемент TrackModal_modalContent__AzQPF
      */
     async createLyricsModalInTrackInfo(root) {
-      const header = root.querySelector(".PageHeaderBase_info__GRcah");
+      const header = root?.querySelector(".PageHeaderBase_info__GRcah");
       if (!header) {
         return;
       }
       const trackName = header.querySelector(
         '[data-test-id="ENTITY_TITLE"] span'
       )?.textContent;
-      var lyricsRoot = root.querySelector(".TrackModalLyrics_root__JABJp");
-      if (lyricsRoot && Helpers.isCustom(lyricsRoot)) {
+      var lyricsRoot = root.querySelector(
+        ".TrackModalLyrics_root__JABJp"
+      );
+      if (lyricsRoot && Helpers.isCustom(lyricsRoot) && trackName && this.addon.latestTrackLyrics?.trackName == trackName) {
         return;
       }
       if (trackName && this.addon.latestTrackLyrics?.trackName != trackName) {
@@ -898,8 +899,11 @@
         const content = root.querySelector(".TrackModal_content__9qH7W");
         content?.insertBefore(lyricsRoot, content.firstChild.nextSibling);
       }
-      const lyricsEl = lyricsRoot.querySelector(".TrackModalLyrics_lyrics__naoEF");
-      if (lyricsEl) lyricsEl.textContent = this.addon.latestTrackLyrics?.plainLyrics ?? "";
+      const lyricsEl = lyricsRoot.querySelector(
+        ".TrackModalLyrics_lyrics__naoEF"
+      );
+      if (lyricsEl)
+        lyricsEl.textContent = this.addon.latestTrackLyrics?.plainLyrics ?? "";
       lyricsRoot.querySelector(".BnN6sQIg6NahNBun6fkP > button")?.addEventListener("click", (ev) => {
         this.expandOrUnexpandTextInLyricsModal(ev, lyricsRoot);
       });
@@ -1123,7 +1127,7 @@
         }
       }
       const lyrics = TrackLyrics.fromJson(result);
-      console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D: ", lyrics);
+      if (lyrics) console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D: ", lyrics);
       this.stopProcessingTrack(trackName, artistName, lyrics);
       return lyrics;
     }
@@ -1151,6 +1155,7 @@
         (track) => track.trackName === trackName && track.artistName === artistName
       )) {
         this.cachedTrackLyrics.push(lyrics);
+        if (!lyrics.id) console.log("[ReachText] \u0422\u0435\u043A\u0441\u0442 \u0442\u0440\u0435\u043A\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D");
       }
       if (this._processingTrackTitle === trackName) {
         this.latestTrackLyrics = lyrics;
