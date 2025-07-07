@@ -1,23 +1,23 @@
 "use strict";
 (() => {
   // src/helpers/Helpers.ts
-  var Helpers = class {
+  var Helpers = class _Helpers {
     /**
-        * Создает node элемент из HTML строки.
-        * src: https://stackoverflow.com/a/494348/25080935
-        * @param {String} htmlString HTML строка представляющая node элемент.
-        * @returns {HTMLElement} Элемент созданный из HTML строки.
-        */
+     * Создает node элемент из HTML строки.
+     * src: https://stackoverflow.com/a/494348/25080935
+     * @param {String} htmlString HTML строка представляющая node элемент.
+     * @returns {HTMLElement} Элемент созданный из HTML строки.
+     */
     static createElementFromHTML(htmlString) {
       var div = document.createElement("div");
       div.innerHTML = htmlString.trim();
       return div.firstChild;
     }
     /**
-    * Решил выделить задержку в отдельную переменную, так как привык к синтаксису C# :3
-    * @param {number} ms Задержка в миллисекундах.
-    * @returns {Promise<any>} Promise для задержки.
-    */
+     * Решил выделить задержку в отдельную переменную, так как привык к синтаксису C# :3
+     * @param {number} ms Задержка в миллисекундах.
+     * @returns {Promise<any>} Promise для задержки.
+     */
     static async delay(ms) {
       await new Promise((resolve) => setTimeout(resolve, ms));
     }
@@ -36,32 +36,61 @@
       }
     }
     /**
-     * Возвращает первый элемент, соответствующий указанному селектору, сначала проверяя сам элемент,
-     * затем его потомков, если сам элемент не подходит.
+     * Определяет, является ли текущая версия приложения больше или равной 5.58.0.
      *
-     * @param element Корневой элемент, с которого начинается поиск.
-     * @param selector CSS-селектор для поиска среди элемента и его потомков.
-     * @returns Первый найденный элемент или `null`, если совпадений нет.
+     * Геттер парсит глобальную строку `window.VERSION` (ожидается формат "x.y.z"),
+     * объединяет её числовые части и сравнивает полученное число с `5580`.
+     *
+     * @returns `true`, если текущая версия не ниже 5.58.0, иначе `false`.
      */
-    static querySelectorIncludingSelf(element, selector) {
-      if (element.matches?.(selector)) return element;
-      return element.querySelector?.(selector);
+    static get IS_NEW_VERSION() {
+      const splitedVersion = window.VERSION.split(".");
+      var version = "";
+      splitedVersion.forEach((element) => {
+        version += element;
+      });
+      return parseInt(version) >= 5580;
+    }
+    /**
+     * Получает экземпляр плеера в зависимости от актуальности версии приложения.
+     * @returns {any} Экземпляр плеера
+     */
+    static get player() {
+      if (_Helpers.IS_NEW_VERSION) return window.sonataState;
+      else return window.player;
     }
     static get progress() {
-      return window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.progress?.value;
+      if (!_Helpers.IS_NEW_VERSION) {
+        return _Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.progress?.value;
+      } else {
+        return _Helpers.player?.state?.currentMediaPlayer?.value?.state?.progress?.value;
+      }
     }
     static get meta() {
-      return window?.player?.state?.queueState?.currentEntity?.value?.entity?.entityData?.meta;
+      return _Helpers.player?.state?.queueState?.currentEntity?.value?.entity?.entityData?.meta;
+    }
+    static get speed() {
+      return _Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.speed?.value;
     }
     static get playerState() {
-      return window?.player?.state?.playerState;
+      return _Helpers.player?.state?.playerState;
     }
     static get status() {
-      return window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.status?.observableValue?.value;
+      return _Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.status?.observableValue?.value;
     }
+    /**
+     * Определяет, помечен ли данный HTML-элемент как кастомный с помощью свойства `__reachText_custom__`.
+     * @param el HTML-элемент для проверки.
+     * @returns `true`, если у элемента установлено свойство `__reachText_custom__` в истинное значение; иначе `false`.
+     */
     static isCustom(el) {
       return el?.__reachText_custom__ || false;
     }
+    /**
+     * Устанавливает значение свойства `__reachText_custom__` для указанного HTML-элемента.
+     * @param el Элемент.
+     * @param value Значение свойства.
+     */
     static setCustom(el, value) {
       if (!el) {
         return;
@@ -147,7 +176,7 @@
   var HtmlDefenetions = class {
     static get TRACK_CONTEXT_MENU_LYRICS_BUTTON() {
       return Helpers.createElementFromHTML(
-        `<button class="cpeagBA1_PblpJn8Xgtv UDMYhpDjiAFT3xUx268O dgV08FKVLZKFsucuiryn IlG7b1K0AD7E7AMx6F5p HbaqudSqu7Q3mv3zMPGr qU2apWBO1yyEK0lZ3lPO kc5CjvU5hT9KEj0iTt3C EiyUV4aCJzpfNzuihfMM" type="button" role="menuitem" data-test-id="TRACK_CONTEXT_MENU_LYRICS_BUTTON" tabindex="-1" aria-live="off" aria-busy="false"><span class="JjlbHZ4FaP9EAcR_1DxF"><svg class="J9wTKytjOWG73QMoN5WP elJfazUBui03YWZgHCbW vqAVPWFJlhAOleK_SLk4 l3tE1hAMmBj2aoPPwU08" focusable="false" aria-hidden="true" style="padding: var(--ym-icon-padding, 3px 2px);"><use xlink:href="#lyrics"></use></svg>\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0442\u0435\u043A\u0441\u0442 \u043F\u0435\u0441\u043D\u0438</span></button>`
+        `<button class="cpeagBA1_PblpJn8Xgtv UDMYhpDjiAFT3xUx268O dgV08FKVLZKFsucuiryn IlG7b1K0AD7E7AMx6F5p HbaqudSqu7Q3mv3zMPGr qU2apWBO1yyEK0lZ3lPO kc5CjvU5hT9KEj0iTt3C EiyUV4aCJzpfNzuihfMM" type="button" role="menuitem" data-test-id="TRACK_CONTEXT_MENU_LYRICS_BUTTON" tabindex="-1" aria-live="off" aria-busy="false"><span class="JjlbHZ4FaP9EAcR_1DxF"><svg class="J9wTKytjOWG73QMoN5WP elJfazUBui03YWZgHCbW vqAVPWFJlhAOleK_SLk4 l3tE1hAMmBj2aoPPwU08" focusable="false" aria-hidden="true"><use xlink:href="/icons/sprite.svg#lyrics_xxs"></use></svg>\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0442\u0435\u043A\u0441\u0442 \u043F\u0435\u0441\u043D\u0438</span></button>`
       );
     }
     static get TRACK_LYRICS_DIALOG() {
@@ -379,15 +408,40 @@
        */
       this.wheelTimeout = null;
       /**
-      * Таймаут для показа прошедшего синхронизированного текста ри прокрутке
-      * @type {number | null}
-      */
+       * Таймаут для показа прошедшего синхронизированного текста ри прокрутке
+       * @type {number | null}
+       */
       this.hoverTimeout = null;
       /**
        * Y-координата у transform синхронизированного текста
        * @type {number}
        */
       this.translate = 0;
+      this.onStateChanged = async (event) => {
+        if (!Helpers.player) {
+          return;
+        }
+        switch (event) {
+          case "audio-paused":
+          case "audio-ended":
+          case "audio-end":
+          case "Paused":
+          case "Ended":
+            await this.audioPaused();
+            break;
+          case "audio-resumed":
+          case "audio-set-progress":
+          case "audio-updating-progress":
+          case "Resumed":
+          case "UpdatingProgress":
+            await this.audioResumed();
+            break;
+          case "audio-canplay":
+          case "Playing":
+            await this.audioCanPlay();
+            break;
+        }
+      };
       /**
        * Количество миллисекунд которое используется для включения цифрового отсчета если интро длится выше значения
        * @type {number}
@@ -409,33 +463,11 @@
      * @returns {void}
      */
     tryInject() {
-      if (window.player == null) {
-        setTimeout(this.tryInject, 100);
+      if (Helpers.player == null) {
+        setTimeout(() => this.tryInject(), 100);
         return;
       }
-      Helpers.playerState.event.onChange(async (event) => {
-        if (!window.player) {
-          return;
-        }
-        switch (event) {
-          // Если трек поставлен на паузу
-          case "audio-paused":
-          case "audio-ended":
-          case "audio-end":
-            this.audioPaused();
-            break;
-          // Если трек был убран с паузы или была изменена позиция трека
-          case "audio-resumed":
-          case "audio-set-progress":
-          case "audio-updating-progress":
-            await this.audioResumed();
-            break;
-          // После того как трек загрузился
-          case "audio-canplay":
-            await this.audioCanPlay();
-            break;
-        }
-      });
+      Helpers.playerState.event.onChange(this.onStateChanged);
     }
     /**
      * Вызывается при включении трека
@@ -466,10 +498,10 @@
       }
     }
     /**
-    * Вызывается при остановке трека трека
-    * @see {@link SyncedLyricsInjector.inject}
-    * @returns {Promise<void>}
-    */
+     * Вызывается при остановке трека трека
+     * @see {@link SyncedLyricsInjector.inject}
+     * @returns {Promise<void>}
+     */
     async audioPaused() {
       if (!Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
         document.querySelector(".SyncLyricsScroller_counter__B2E7K")?.querySelectorAll(".SyncLyricsLoader_element___Luwv")?.forEach(
@@ -499,10 +531,10 @@
       }
     }
     /**
-    * Вызывается после загрузки трека
-    * @see {@link SyncedLyricsInjector.inject}
-    * @returns {Promise<void>}
-    */
+     * Вызывается после загрузки трека
+     * @see {@link SyncedLyricsInjector.inject}
+     * @returns {Promise<void>}
+     */
     async audioCanPlay() {
       clearTimeout(this.timeout);
       if (Helpers.isCustom(document.querySelector(".swiper-wrapper")) && Helpers.meta?.lyricsInfo?.hasAvailableSyncLyrics) {
@@ -530,6 +562,7 @@
         );
         playerSyncLyricsButton?.classList.add(availableButtonClass);
         playerSyncLyricsButton?.removeAttribute("disabled");
+        playerSyncLyricsButton?.removeAttribute("aria-hidden");
       } else {
         if (false) {
           playerSyncLyricsButton?.removeEventListener(
@@ -559,9 +592,9 @@
       await instance.createLyricsModal();
     }
     /**
-    * Обновление синхронизированного текста
-    * @returns {Promise<void>}
-    */
+     * Обновление синхронизированного текста
+     * @returns {Promise<void>}
+     */
     async updateFullScreenLyricsProgress() {
       var position = Helpers.progress?.position;
       var swiper = document.querySelector(".swiper-wrapper");
@@ -673,7 +706,7 @@
       nextLyricsLine?.element?.classList.add("swiper-slide-next");
       swiper.style.transform = `translate3d(0px, ${this.translate}px, 0px)`;
       if (nextLyricsLine) {
-        let timeoutDelay = (nextLyricsLine?.timestamp - position * 1e3) / (window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.speed?.value ?? 1);
+        let timeoutDelay = (nextLyricsLine?.timestamp - position * 1e3) / (Helpers.speed ?? 1);
         if (enableDigitTimer && ms && position < syncedLyrics[0].timestamp / 1e3) {
           timeoutDelay = ms > 3e3 ? timeoutDelay - 3e3 : ms % 1e3;
         }
@@ -749,7 +782,9 @@
         }
       }
       lyricsContainer = HtmlDefenetions.LYRICS_CONTAINER;
-      lyricsContainer.querySelector(QueryConstants.SYNC_LYRICS_FOOTER_WRITERS).textContent = "\u0410\u0432\u0442\u043E\u0440\u044B: " + this.addon.latestTrackLyrics?.artistName;
+      lyricsContainer.querySelector(
+        QueryConstants.SYNC_LYRICS_FOOTER_WRITERS
+      ).textContent = "\u0410\u0432\u0442\u043E\u0440\u044B: " + this.addon.latestTrackLyrics?.artistName;
       additionalContent.appendChild(lyricsContainer);
       document.querySelector('[data-test-id="FULLSCREEN_PLAYER_CLOSE_BUTTON"]')?.addEventListener("click", this.removeLyricsModal.bind(this));
       const swiper = lyricsContainer.querySelector(
@@ -768,7 +803,7 @@
           ))
             return;
           clearTimeout(this.wheelTimeout);
-          window.player.setProgress(line.timestamp / 1e3);
+          Helpers.player.setProgress(line.timestamp / 1e3);
         });
         swiper.insertBefore(line.element, swiperFirstChild);
         if (i == 0) {
@@ -822,7 +857,9 @@
       if (this.wheelTimeout) clearTimeout(this.wheelTimeout);
       this.timeout = this.hoverTimeout = this.wheelTimeout = null;
       document.querySelector(".FullscreenPlayerDesktopContent_syncLyrics__6dTfH")?.remove();
-      var content = document.querySelector(".FullscreenPlayerDesktopContent_fullscreenContent__Nvety");
+      var content = document.querySelector(
+        ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
+      );
       if (content) {
         content?.classList.remove(
           "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
@@ -847,22 +884,22 @@
      */
     inject() {
       const observer = new MutationObserver(async (_mutationsList) => {
-        const root = document.querySelector(".TrackModal_modalContent__AzQPF");
-        console.log(root);
+        const modal = document.querySelector?.(".TrackModal_modalContent__AzQPF");
+        if (modal) {
+          await this.createLyricsModalInTrackInfo(modal);
+        }
       });
       observer.observe(document.body, {
         childList: true,
-        subtree: true,
-        attributes: true,
-        characterData: true
+        subtree: true
       });
     }
     /**
      * Обновляет модальное окно информации о треке добавляя в него текст трека
-     * @param {Element} root Элемент TrackModal_modalContent__AzQPF
+     * @param {HTMLElement} root Элемент TrackModal_modalContent__AzQPF
      */
     async createLyricsModalInTrackInfo(root) {
-      const header = root?.querySelector(".PageHeaderBase_info__GRcah");
+      const header = root.querySelector(".PageHeaderBase_info__GRcah");
       if (!header) {
         return;
       }

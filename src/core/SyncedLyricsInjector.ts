@@ -61,36 +61,39 @@ export class SyncedLyricsInjector extends InjectorBase {
    * @returns {void}
    */
   private tryInject(): void {
-    if (window.player == null) {
-      setTimeout(this.tryInject, 100);
+    if (Helpers.player == null) {
+      setTimeout(() => this.tryInject(), 100);
       return;
     }
 
-    Helpers.playerState.event.onChange(async (event: string) => {
-      if (!window.player) {
-        return;
-      }
-
-      switch (event) {
-        // Если трек поставлен на паузу
-        case "audio-paused":
-        case "audio-ended":
-        case "audio-end":
-          this.audioPaused();
-          break;
-        // Если трек был убран с паузы или была изменена позиция трека
-        case "audio-resumed":
-        case "audio-set-progress":
-        case "audio-updating-progress":
-          await this.audioResumed();
-          break;
-        // После того как трек загрузился
-        case "audio-canplay":
-          await this.audioCanPlay();
-          break;
-      }
-    });
+    Helpers.playerState.event.onChange(this.onStateChanged);
   }
+
+   private readonly onStateChanged = async (event: string): Promise<void> => {
+    if (!Helpers.player) {
+      return;
+    }
+    switch (event) {
+      case "audio-paused":
+      case "audio-ended":
+      case "audio-end":
+      case "Paused":
+      case "Ended":
+        await this.audioPaused();
+        break;
+      case "audio-resumed":
+      case "audio-set-progress":
+      case "audio-updating-progress":
+      case "Resumed":
+      case "UpdatingProgress":
+        await this.audioResumed();
+        break;
+      case "audio-canplay":
+      case "Playing":
+        await this.audioCanPlay();
+        break;
+    }
+  };
 
   /**
    * Вызывается при включении трека
@@ -229,6 +232,7 @@ export class SyncedLyricsInjector extends InjectorBase {
       );
       playerSyncLyricsButton?.classList.add(availableButtonClass);
       playerSyncLyricsButton?.removeAttribute("disabled");
+      playerSyncLyricsButton?.removeAttribute("aria-hidden")
     } else {
       // Кнопка открытия текста больше не отключается скриптом
       if (false) {
@@ -429,8 +433,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     if (nextLyricsLine) {
       let timeoutDelay =
         (nextLyricsLine?.timestamp - position * 1000) /
-        (window?.player?.state?.currentMediaPlayer?.value?.audioPlayerState
-          ?.speed?.value ?? 1);
+        (Helpers.speed ?? 1);
 
       if (
         enableDigitTimer &&
@@ -568,7 +571,7 @@ export class SyncedLyricsInjector extends InjectorBase {
           return;
 
         clearTimeout(this.wheelTimeout!);
-        window.player.setProgress(line.timestamp / 1000);
+        Helpers.player.setProgress(line.timestamp / 1000);
       });
       swiper.insertBefore(line.element, swiperFirstChild);
 

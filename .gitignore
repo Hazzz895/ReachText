@@ -1,0 +1,7 @@
+node_modules
+assets
+package.json
+tsconfig.json
+package-lock.json
+**/*.dev.*
+**/*.dev
