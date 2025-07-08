@@ -69,7 +69,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     Helpers.playerState.event.onChange(this.onStateChanged);
   }
 
-   private readonly onStateChanged = async (event: string): Promise<void> => {
+  private readonly onStateChanged = async (event: string): Promise<void> => {
     if (!Helpers.player) {
       return;
     }
@@ -232,7 +232,7 @@ export class SyncedLyricsInjector extends InjectorBase {
       );
       playerSyncLyricsButton?.classList.add(availableButtonClass);
       playerSyncLyricsButton?.removeAttribute("disabled");
-      playerSyncLyricsButton?.removeAttribute("aria-hidden")
+      playerSyncLyricsButton?.removeAttribute("aria-hidden");
     } else {
       // Кнопка открытия текста больше не отключается скриптом
       if (false) {
@@ -432,8 +432,7 @@ export class SyncedLyricsInjector extends InjectorBase {
 
     if (nextLyricsLine) {
       let timeoutDelay =
-        (nextLyricsLine?.timestamp - position * 1000) /
-        (Helpers.speed ?? 1);
+        (nextLyricsLine?.timestamp - position * 1000) / (Helpers.speed ?? 1);
 
       if (
         enableDigitTimer &&
@@ -648,7 +647,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     var content = document.querySelector(
       ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
     );
-    if (content) {
+    if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics) {
       content?.classList.remove(
         "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
       );

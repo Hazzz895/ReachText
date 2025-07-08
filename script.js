@@ -860,7 +860,7 @@
       var content = document.querySelector(
         ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
       );
-      if (content) {
+      if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics) {
         content?.classList.remove(
           "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
         );
