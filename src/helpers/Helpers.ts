@@ -128,7 +128,7 @@ export abstract class Helpers {
    * @param el Элемент.
    * @param value Значение свойства.
    */
-  public static setCustom(el: HTMLElement, value: boolean): void {
+  public static setCustom(el: HTMLElement, value: boolean = true): void {
     if (!el) {
       return;
     }
