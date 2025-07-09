@@ -67,6 +67,10 @@ export class SyncedLyricsInjector extends InjectorBase {
     }
 
     Helpers.playerState.event.onChange(this.onStateChanged);
+
+    if (Helpers.meta) {
+      this.audioCanPlay();
+    }
   }
 
   private readonly onStateChanged = async (event: string): Promise<void> => {
