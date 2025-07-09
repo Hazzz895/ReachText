@@ -238,8 +238,7 @@ export class SyncedLyricsInjector extends InjectorBase {
       playerSyncLyricsButton?.removeAttribute("disabled");
       playerSyncLyricsButton?.removeAttribute("aria-hidden");
     } else {
-      // Кнопка открытия текста больше не отключается скриптом
-      if (false) {
+      if (true) {
         // Выключаем кнопку
         playerSyncLyricsButton?.removeEventListener(
           "click",
