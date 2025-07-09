@@ -18,10 +18,18 @@ export class TrackInfoInjector extends InjectorBase {
    * @inheritdoc
    */
   inject(): void {
-    const observer = new MutationObserver(async (_mutationsList) => {
+    const observer = new MutationObserver(async (mutationsList) => {
       const modal = document.querySelector?.(".TrackModal_modalContent__AzQPF");
       if (modal) {
-        await this.createLyricsModalInTrackInfo(modal as HTMLElement);
+        const ymText = mutationsList.find((el) => {
+          if (!(el.target instanceof HTMLElement)) return false;
+
+          if (el.target.classList.contains('BnN6sQIg6NahNBun6fkP') && !Helpers.isCustom(el.target)) {
+            return true;
+          }
+        })?.target as (HTMLElement | null)
+
+        await this.createLyricsModalInTrackInfo(modal as HTMLElement, ymText);
       }
     });
 
@@ -32,74 +40,72 @@ export class TrackInfoInjector extends InjectorBase {
   }
 
   /**
+   * Удаляет все пользовательские элементы с текстами песен, созданные скриптом из предоставленного массива HTML-элементов.
+   * @param lyricsRoots Массив элементов `HTMLElement`, представляющих корневые элементы текстов песен.
+   */
+  private clearCustomLyrics(lyricsRoots: HTMLElement[]): void {
+    lyricsRoots.filter(Helpers.isCustom).forEach(el => el.remove());
+  }
+
+  /**
    * Обновляет модальное окно информации о треке добавляя в него текст трека
    * @param {HTMLElement} root Элемент TrackModal_modalContent__AzQPF
    */
-  async createLyricsModalInTrackInfo(root: HTMLElement) {
-    const header = root.querySelector(".PageHeaderBase_info__GRcah");
-
-    if (!header) {
-      return;
-    }
-
-    const trackName = header.querySelector(
-      '[data-test-id="ENTITY_TITLE"] span'
-    )?.textContent;
-
-    var lyricsRoot = root.querySelector(
-      ".TrackModalLyrics_root__JABJp"
-    ) as HTMLElement;
-
-    if (
-      lyricsRoot &&
-      Helpers.isCustom(lyricsRoot) &&
-      trackName &&
-      this.addon.latestTrackLyrics?.trackName == trackName
-    ) {
-      return;
-    }
-
-    if (trackName && this.addon.latestTrackLyrics?.trackName != trackName) {
-      const artist = header.querySelector(
-        '[data-test-id="SEPARATED_ARTIST_TITLE"] span'
-      )!.textContent;
-
-      await this.addon.getTrackLyrics(trackName, artist);
-    }
-
-    var lyricsRoots = Array.from(
+  async createLyricsModalInTrackInfo(root: HTMLElement, ymText: HTMLElement | null) {
+      let lyricsRoots = Array.from(
       root.querySelectorAll(".TrackModalLyrics_root__JABJp")
     ) as HTMLElement[];
 
-    lyricsRoot = lyricsRoots.find((el) => Helpers.isCustom(el))!;
-    let created = lyricsRoot != null && lyricsRoot != undefined;
-
-    if (lyricsRoots.find((el) => !Helpers.isCustom(el)) || !this.addon.latestTrackLyrics?.plainLyrics) {
-      // Бывает такое что текст из ЯМ был получен позже чем текст скрипта, в таком случае происходит удаление текстов созданных скриптом
-      lyricsRoots
-        .filter((el) => Helpers.isCustom(el))
-        .forEach((el) => el.remove());
+    if (ymText) {
+      this.clearCustomLyrics(lyricsRoots);
       return;
     }
 
-    if (!created) {
-      lyricsRoot = HtmlDefenetions.TRACK_INFO_LYRICS_ROOT;
-      const content = root.querySelector(".TrackModal_content__9qH7W");
-      content?.insertBefore(lyricsRoot, content.firstChild!.nextSibling!);
+    const header = root.querySelector(".PageHeaderBase_info__GRcah");
+    if (!header) return;
+
+    const trackName = header.querySelector('[data-test-id="ENTITY_TITLE"] span')?.textContent;
+    if (trackName && this.addon.latestTrackLyrics?.trackName !== trackName) {
+      const artist = header.querySelector('[data-test-id="SEPARATED_ARTIST_TITLE"] span')?.textContent ?? null;
+      await this.addon.getTrackLyrics(trackName, artist);
     }
 
-    const lyricsEl = lyricsRoot.querySelector(
-      ".TrackModalLyrics_lyrics__naoEF"
-    );
-    if (lyricsEl)
-      lyricsEl.textContent = this.addon.latestTrackLyrics?.plainLyrics ?? "";
+    // Обновляем список после возможной подгрузки текста
+    lyricsRoots = Array.from(
+      root.querySelectorAll(".TrackModalLyrics_root__JABJp")
+    ) as HTMLElement[];
 
-    lyricsRoot
-      .querySelector(".BnN6sQIg6NahNBun6fkP > button")
-      ?.addEventListener("click", (ev: Event) => {
-        this.expandOrUnexpandTextInLyricsModal(ev, lyricsRoot);
-      });
-    Helpers.setCustom(lyricsRoot, true);
+    const hasYMLyrics = lyricsRoots.some(el => !Helpers.isCustom(el));
+
+    if (hasYMLyrics && !this.addon.latestTrackLyrics?.plainLyrics) {
+      this.clearCustomLyrics(lyricsRoots);
+      return;
+    }
+
+    let lyricsRoot = lyricsRoots.find(Helpers.isCustom);
+    const created = !!lyricsRoot;
+
+    if (!created && !hasYMLyrics) {
+      lyricsRoot = HtmlDefenetions.TRACK_INFO_LYRICS_ROOT;
+      Helpers.setCustom(lyricsRoot, true);
+      const content = root.querySelector(".TrackModal_content__9qH7W");
+      content?.insertBefore(lyricsRoot, content.firstChild?.nextSibling ?? null);
+    }
+
+    if (!lyricsRoot) return;
+
+    const lyricsEl = lyricsRoot.querySelector(".TrackModalLyrics_lyrics__naoEF");
+    if (lyricsEl) {
+      lyricsEl.textContent = this.addon.latestTrackLyrics?.plainLyrics ?? "";
+    }
+
+    if (!created) {
+      lyricsRoot
+        .querySelector(".BnN6sQIg6NahNBun6fkP > button")
+        ?.addEventListener("click", (ev: Event) => {
+          this.expandOrUnexpandTextInLyricsModal(ev, lyricsRoot!);
+        });
+    }
   }
 
   /**
