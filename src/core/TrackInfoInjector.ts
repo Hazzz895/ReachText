@@ -71,16 +71,10 @@ export class TrackInfoInjector extends InjectorBase {
       root.querySelectorAll(".TrackModalLyrics_root__JABJp")
     ) as HTMLElement[];
 
-    lyricsRoot = lyricsRoots[lyricsRoots.length - 1];
+    lyricsRoot = lyricsRoots.find((el) => Helpers.isCustom(el))!;
     let created = lyricsRoot != null && lyricsRoot != undefined;
-    if (
-      !this.addon.latestTrackLyrics?.plainLyrics &&
-      Helpers.isCustom(lyricsRoot)
-    ) {
-      lyricsRoot.remove();
-      return;
-    }
-    if (lyricsRoot && !Helpers.isCustom(lyricsRoot)) {
+
+    if (lyricsRoots.find((el) => !Helpers.isCustom(el)) || !this.addon.latestTrackLyrics?.plainLyrics) {
       // Бывает такое что текст из ЯМ был получен позже чем текст скрипта, в таком случае происходит удаление текстов созданных скриптом
       lyricsRoots
         .filter((el) => Helpers.isCustom(el))
