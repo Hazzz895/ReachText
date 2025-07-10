@@ -13,5 +13,8 @@
         "Player",
         "Script",
         "Utility"
+    ],
+    "allowedUrls": [
+        "https://lrclib.net/api/"
     ]
 }
