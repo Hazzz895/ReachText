@@ -1,6 +1,7 @@
 import { HtmlDefenetions, QueryConstants } from "../helpers/Constants";
 import { Helpers } from "../helpers/Helpers";
 import { InjectorBase } from "../helpers/InjectorBase";
+import { ReachText } from "./ReachText";
 import { TrackLyrics } from "./TrackLyrics";
 
 /**
@@ -650,7 +651,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     var content = document.querySelector(
       ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
     );
-    if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && this.syncLyricsOpened) {
+    if (content) {
       content?.classList.remove(
         "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
       );
