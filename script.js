@@ -91,7 +91,7 @@
      * @param el Элемент.
      * @param value Значение свойства.
      */
-    static setCustom(el, value) {
+    static setCustom(el, value = true) {
       if (!el) {
         return;
       }
@@ -217,6 +217,11 @@
     static get TRACK_INFO_LYRICS_ROOT() {
       return Helpers.createElementFromHTML(
         '<div class="TrackModalLyrics_root__JABJp"><h2 title="\u0422\u0435\u043A\u0441\u0442" class="_MWOVuZRvUQdXKTMcOPx LezmJlldtbHWqU7l1950 oyQL2RSmoNbNQf3Vc6YI Ctk8dbecq31Qh7isOJPQ nSU6fV9y80WrZEfafvww TrackModalLyrics_title__zjWl_" style="-webkit-line-clamp: 1;">\u0422\u0435\u043A\u0441\u0442</h2><div class="BnN6sQIg6NahNBun6fkP"><div class="MM8MKXCw0gMkVvq7C1YS MsLY_qiKofQrwKAr98EC"><div class="_MWOVuZRvUQdXKTMcOPx LezmJlldtbHWqU7l1950 jMyoZB5J9iZbzJmWOrF0 V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR TrackModalLyrics_lyrics__naoEF bfmUuyonXAK7HKYtDzUK" style="-webkit-line-clamp: 4;"><div class="Lyrics_writers__xvrNp"><div class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR" data-test-id="TRACK_LYRICS_AUTHORS"></div><div class="_MWOVuZRvUQdXKTMcOPx V3WU123oO65AxsprotU9 _3_Mxw7Si7j2g4kWjlpR" data-test-id="TRACK_LYRICS_SOURCE"></div></div></div></div><button class="cpeagBA1_PblpJn8Xgtv qlPp6CSQQEMVZPqtqLiQ dgV08FKVLZKFsucuiryn IlG7b1K0AD7E7AMx6F5p IgYbZLnYjW0nMahgpkus qU2apWBO1yyEK0lZ3lPO Dp6n_Y0cfUyPQT1Z6uIm TrackModalLyrics_button__YqxIm" type="button" aria-live="off" aria-busy="false">\u0427\u0438\u0442\u0430\u0442\u044C \u043F\u043E\u043B\u043D\u043E\u0441\u0442\u044C\u044E</button></div></div>'
+      );
+    }
+    static get TRACK_INFO_LYRICS_SHIMMER_ROOT() {
+      return Helpers.createElementFromHTML(
+        '<div class="TrackModalLyricsShimmer_root__t88sX"><div class="JD1RZC0EtdwegdYvGm6W lJbeO5iovzBwUTpu7hFA K4G7ASZk9TWzXzAWMZKF TrackModalLyricsShimmer_title__lIyk4" aria-live="polite" aria-busy="true"></div><div class="TextBlockShimmer_root__og5Bj TrackModalLyricsShimmer_lyrics__BSM_Q TrackModalLyricsShimmer_important__U1BbD"><div class="JD1RZC0EtdwegdYvGm6W Ig8cmdGxncIa4g0mjlzw K4G7ASZk9TWzXzAWMZKF TextBlockShimmer_shimmer__TpDdq" aria-live="polite" aria-busy="true" style="width: 55%;"></div><div class="JD1RZC0EtdwegdYvGm6W Ig8cmdGxncIa4g0mjlzw K4G7ASZk9TWzXzAWMZKF TextBlockShimmer_shimmer__TpDdq" aria-live="polite" aria-busy="true" style="width: 86%;"></div><div class="JD1RZC0EtdwegdYvGm6W Ig8cmdGxncIa4g0mjlzw K4G7ASZk9TWzXzAWMZKF TextBlockShimmer_shimmer__TpDdq" aria-live="polite" aria-busy="true" style="width: 56%;"></div><div class="JD1RZC0EtdwegdYvGm6W Ig8cmdGxncIa4g0mjlzw K4G7ASZk9TWzXzAWMZKF TextBlockShimmer_shimmer__TpDdq" aria-live="polite" aria-busy="true" style="width: 68%;"></div></div><div class="JD1RZC0EtdwegdYvGm6W lJbeO5iovzBwUTpu7hFA K4G7ASZk9TWzXzAWMZKF TrackModalLyricsShimmer_button__uAG_w" aria-live="polite" aria-busy="true"></div></div>'
       );
     }
   };
@@ -468,6 +473,9 @@
         return;
       }
       Helpers.playerState.event.onChange(this.onStateChanged);
+      if (Helpers.meta) {
+        this.audioCanPlay();
+      }
     }
     /**
      * Вызывается при включении трека
@@ -860,7 +868,7 @@
       var content = document.querySelector(
         ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
       );
-      if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics) {
+      if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && this.syncLyricsOpened) {
         content?.classList.remove(
           "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
         );
@@ -883,10 +891,16 @@
      * @inheritdoc
      */
     inject() {
-      const observer = new MutationObserver(async (_mutationsList) => {
+      const observer = new MutationObserver(async (mutationsList) => {
         const modal = document.querySelector?.(".TrackModal_modalContent__AzQPF");
         if (modal) {
-          await this.createLyricsModalInTrackInfo(modal);
+          const ymText = mutationsList.find((el) => {
+            if (!(el.target instanceof HTMLElement)) return false;
+            if (el.target.classList.contains("BnN6sQIg6NahNBun6fkP") && !Helpers.isCustom(el.target)) {
+              return true;
+            }
+          })?.target;
+          await this.createLyricsModalInTrackInfo(modal, ymText);
         }
       });
       observer.observe(document.body, {
@@ -895,56 +909,57 @@
       });
     }
     /**
+     * Удаляет все пользовательские элементы с текстами песен, созданные скриптом из предоставленного массива HTML-элементов.
+     * @param lyricsRoots Массив элементов `HTMLElement`, представляющих корневые элементы текстов песен.
+     */
+    clearCustomLyrics(lyricsRoots) {
+      lyricsRoots.filter(Helpers.isCustom).forEach((el) => el.remove());
+    }
+    /**
      * Обновляет модальное окно информации о треке добавляя в него текст трека
      * @param {HTMLElement} root Элемент TrackModal_modalContent__AzQPF
      */
-    async createLyricsModalInTrackInfo(root) {
-      const header = root.querySelector(".PageHeaderBase_info__GRcah");
-      if (!header) {
-        return;
-      }
-      const trackName = header.querySelector(
-        '[data-test-id="ENTITY_TITLE"] span'
-      )?.textContent;
-      var lyricsRoot = root.querySelector(
-        ".TrackModalLyrics_root__JABJp"
-      );
-      if (lyricsRoot && Helpers.isCustom(lyricsRoot) && trackName && this.addon.latestTrackLyrics?.trackName == trackName) {
-        return;
-      }
-      if (trackName && this.addon.latestTrackLyrics?.trackName != trackName) {
-        const artist = header.querySelector(
-          '[data-test-id="SEPARATED_ARTIST_TITLE"] span'
-        ).textContent;
-        await this.addon.getTrackLyrics(trackName, artist);
-      }
-      var lyricsRoots = Array.from(
+    async createLyricsModalInTrackInfo(root, ymText) {
+      let lyricsRoots = Array.from(
         root.querySelectorAll(".TrackModalLyrics_root__JABJp")
       );
-      lyricsRoot = lyricsRoots[lyricsRoots.length - 1];
-      let created = lyricsRoot != null && lyricsRoot != void 0;
-      if (!this.addon.latestTrackLyrics?.plainLyrics && Helpers.isCustom(lyricsRoot)) {
-        lyricsRoot.remove();
+      if (ymText) {
+        this.clearCustomLyrics(lyricsRoots);
         return;
       }
-      if (lyricsRoot && !Helpers.isCustom(lyricsRoot)) {
-        lyricsRoots.filter((el) => Helpers.isCustom(el)).forEach((el) => el.remove());
+      const header = root.querySelector(".PageHeaderBase_info__GRcah");
+      if (!header) return;
+      const trackName = header.querySelector('[data-test-id="ENTITY_TITLE"] span')?.textContent;
+      if (trackName && this.addon.latestTrackLyrics?.trackName !== trackName) {
+        const artist = header.querySelector('[data-test-id="SEPARATED_ARTIST_TITLE"] span')?.textContent ?? null;
+        await this.addon.getTrackLyrics(trackName, artist);
+      }
+      lyricsRoots = Array.from(
+        root.querySelectorAll(".TrackModalLyrics_root__JABJp")
+      );
+      const hasYMLyrics = lyricsRoots.some((el) => !Helpers.isCustom(el));
+      if (hasYMLyrics || !this.addon.latestTrackLyrics?.plainLyrics) {
+        this.clearCustomLyrics(lyricsRoots);
         return;
+      }
+      let lyricsRoot = lyricsRoots.find(Helpers.isCustom);
+      const created = !!lyricsRoot;
+      if (!created && !hasYMLyrics) {
+        lyricsRoot = HtmlDefenetions.TRACK_INFO_LYRICS_ROOT;
+        Helpers.setCustom(lyricsRoot, true);
+        const content = root.querySelector(".TrackModal_content__9qH7W");
+        content?.insertBefore(lyricsRoot, content.firstChild?.nextSibling ?? null);
+      }
+      if (!lyricsRoot) return;
+      const lyricsEl = lyricsRoot.querySelector(".TrackModalLyrics_lyrics__naoEF");
+      if (lyricsEl) {
+        lyricsEl.textContent = this.addon.latestTrackLyrics?.plainLyrics ?? "";
       }
       if (!created) {
-        lyricsRoot = HtmlDefenetions.TRACK_INFO_LYRICS_ROOT;
-        const content = root.querySelector(".TrackModal_content__9qH7W");
-        content?.insertBefore(lyricsRoot, content.firstChild.nextSibling);
+        lyricsRoot.querySelector(".BnN6sQIg6NahNBun6fkP > button")?.addEventListener("click", (ev) => {
+          this.expandOrUnexpandTextInLyricsModal(ev, lyricsRoot);
+        });
       }
-      const lyricsEl = lyricsRoot.querySelector(
-        ".TrackModalLyrics_lyrics__naoEF"
-      );
-      if (lyricsEl)
-        lyricsEl.textContent = this.addon.latestTrackLyrics?.plainLyrics ?? "";
-      lyricsRoot.querySelector(".BnN6sQIg6NahNBun6fkP > button")?.addEventListener("click", (ev) => {
-        this.expandOrUnexpandTextInLyricsModal(ev, lyricsRoot);
-      });
-      Helpers.setCustom(lyricsRoot, true);
     }
     /**
      * Обработка кнопки "Читать полностью" текста в окне информации о треке.
