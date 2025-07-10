@@ -77,7 +77,7 @@ export class TrackInfoInjector extends InjectorBase {
 
     const hasYMLyrics = lyricsRoots.some(el => !Helpers.isCustom(el));
 
-    if (hasYMLyrics && !this.addon.latestTrackLyrics?.plainLyrics) {
+    if (hasYMLyrics || !this.addon.latestTrackLyrics?.plainLyrics) {
       this.clearCustomLyrics(lyricsRoots);
       return;
     }
