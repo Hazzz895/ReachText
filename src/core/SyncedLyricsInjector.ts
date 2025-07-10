@@ -650,7 +650,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     var content = document.querySelector(
       ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
     );
-    if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics) {
+    if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && this.syncLyricsOpened) {
       content?.classList.remove(
         "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
       );
