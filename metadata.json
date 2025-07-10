@@ -7,7 +7,7 @@
     ],
     "type": "script",
     "description": "Получает тексты песен, у которых они не доступны",
-    "version": "2.1.1",
+    "version": "2.2.0",
     "script": "script.js",
     "tags": [
         "Player",
