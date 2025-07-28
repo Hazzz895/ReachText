@@ -62,12 +62,12 @@ export class SyncedLyricsInjector extends InjectorBase {
    * @returns {void}
    */
   private tryInject(): void {
-    if (Helpers.player == null) {
+    if (Helpers.audioPlayerState?.event == null) {
       setTimeout(() => this.tryInject(), 100);
       return;
     }
 
-    Helpers.playerState.event.onChange(this.onStateChanged);
+    Helpers.audioPlayerState.event.onChange(this.onStateChanged);
 
     if (Helpers.meta) {
       this.audioCanPlay();
@@ -465,7 +465,7 @@ export class SyncedLyricsInjector extends InjectorBase {
     if (ms > 3000 || !enableDigitTimer) {
       var counter = HtmlDefenetions.COUNTER;
 
-      if (Helpers.playerState?.status?.value == "paused") {
+      if (Helpers.audioPlayerState?.status?.value == "paused") {
         counter
           .querySelectorAll(".SyncLyricsLoader_element___Luwv")
           .forEach((pointEl) =>
