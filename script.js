@@ -893,19 +893,16 @@
           if (mutation.type != "childList") {
             continue;
           }
-          for (const node of mutation.addedNodes) {
-            if (!(node instanceof HTMLElement)) continue;
-            const modal = node.matches(".TrackModal_modalContent__AzQPF") ? node : node.querySelector(".TrackModal_modalContent__AzQPF");
-            if (modal && !modal.dataset.reachTextProcessed) {
-              modal.dataset.reachTextProcessed = "true";
-              await this.createLyricsModalInTrackInfo(modal, null);
-            }
+          const node = mutation.target;
+          if (!(node instanceof HTMLElement)) continue;
+          const modal = node.matches(".TrackModal_modalContent__AzQPF") ? node : node.querySelector(".TrackModal_modalContent__AzQPF");
+          if (modal) {
+            await this.createLyricsModalInTrackInfo(modal, null);
           }
-          const targetEl = mutation.target;
-          if (targetEl instanceof HTMLElement && targetEl.classList.contains("BnN6sQIg6NahNBun6fkP") && !Helpers.isCustom(targetEl)) {
-            const modal = targetEl.closest(".TrackModal_modalContent__AzQPF");
-            if (modal) {
-              await this.createLyricsModalInTrackInfo(modal, targetEl);
+          if (node.classList.contains("BnN6sQIg6NahNBun6fkP") && !Helpers.isCustom(node)) {
+            const modal2 = node.closest(".TrackModal_modalContent__AzQPF");
+            if (modal2) {
+              await this.createLyricsModalInTrackInfo(modal2, node);
             }
           }
         }
