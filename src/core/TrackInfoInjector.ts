@@ -19,17 +19,30 @@ export class TrackInfoInjector extends InjectorBase {
    */
   inject(): void {
     const observer = new MutationObserver(async (mutationsList) => {
-      const modal = document.querySelector?.(".TrackModal_modalContent__AzQPF");
-      if (modal) {
-        const ymText = mutationsList.find((el) => {
-          if (!(el.target instanceof HTMLElement)) return false;
 
-          if (el.target.classList.contains('BnN6sQIg6NahNBun6fkP') && !Helpers.isCustom(el.target)) {
-            return true;
+      for (const mutation of mutationsList) {
+        if (mutation.type != "childList") {
+          continue;
+        }
+
+        const node = mutation.target;
+        if (!(node instanceof HTMLElement)) continue;
+
+        const modal = node.matches(".TrackModal_modalContent__AzQPF")
+          ? node
+          : node.querySelector<HTMLElement>(".TrackModal_modalContent__AzQPF");
+
+        if (modal) {
+          await this.createLyricsModalInTrackInfo(modal, null);
+        }
+
+        if (node.classList.contains('BnN6sQIg6NahNBun6fkP') && !Helpers.isCustom(node)) {
+          const modal = node.closest<HTMLElement>('.TrackModal_modalContent__AzQPF');
+          if (modal) {
+            await this.createLyricsModalInTrackInfo(modal, node);
           }
-        })?.target as (HTMLElement | null)
 
-        await this.createLyricsModalInTrackInfo(modal as HTMLElement, ymText);
+        }
       }
     });
 
