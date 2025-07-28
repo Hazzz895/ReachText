@@ -59,24 +59,21 @@
       if (_Helpers.IS_NEW_VERSION) return window.sonataState;
       else return window.player;
     }
+    static get audioPlayerState() {
+      if (_Helpers.IS_NEW_VERSION) return window.sonataState?.state?.currentMediaPlayer?.value?.state;
+      else return window.player?.state?.currentMediaPlayer?.value?.audioPlayerState;
+    }
     static get progress() {
-      if (!_Helpers.IS_NEW_VERSION) {
-        return _Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.progress?.value;
-      } else {
-        return _Helpers.player?.state?.currentMediaPlayer?.value?.state?.progress?.value;
-      }
+      return _Helpers.audioPlayerState?.progress?.value;
     }
     static get meta() {
       return _Helpers.player?.state?.queueState?.currentEntity?.value?.entity?.entityData?.meta;
     }
     static get speed() {
-      return _Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.speed?.value;
-    }
-    static get playerState() {
-      return _Helpers.player?.state?.playerState;
+      return _Helpers.audioPlayerState?.speed?.value;
     }
     static get status() {
-      return _Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState?.status?.observableValue?.value;
+      return _Helpers.audioPlayerState?.status?.observableValue?.value;
     }
     /**
      * Определяет, помечен ли данный HTML-элемент как кастомный с помощью свойства `__reachText_custom__`.
@@ -468,11 +465,11 @@
      * @returns {void}
      */
     tryInject() {
-      if (Helpers.player == null) {
+      if (Helpers.audioPlayerState?.event == null) {
         setTimeout(() => this.tryInject(), 100);
         return;
       }
-      Helpers.playerState.event.onChange(this.onStateChanged);
+      Helpers.audioPlayerState.event.onChange(this.onStateChanged);
       if (Helpers.meta) {
         this.audioCanPlay();
       }
@@ -734,7 +731,7 @@
       var counterParent = HtmlDefenetions.COUNTER_PARENT;
       if (ms > 3e3 || !enableDigitTimer) {
         var counter = HtmlDefenetions.COUNTER;
-        if (Helpers.playerState?.status?.value == "paused") {
+        if (Helpers.audioPlayerState?.status?.value == "paused") {
           counter.querySelectorAll(".SyncLyricsLoader_element___Luwv").forEach(
             (pointEl) => pointEl.classList.add("SyncLyricsLoader_element_paused__LFpD0")
           );
@@ -868,7 +865,7 @@
       var content = document.querySelector(
         ".FullscreenPlayerDesktopContent_fullscreenContent__Nvety"
       );
-      if (content && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && !Helpers.meta.lyricsInfo?.hasAvailableSyncLyrics && this.syncLyricsOpened) {
+      if (content) {
         content?.classList.remove(
           "FullscreenPlayerDesktopContent_fullscreenContent_enter__xMN2Y"
         );
@@ -892,15 +889,25 @@
      */
     inject() {
       const observer = new MutationObserver(async (mutationsList) => {
-        const modal = document.querySelector?.(".TrackModal_modalContent__AzQPF");
-        if (modal) {
-          const ymText = mutationsList.find((el) => {
-            if (!(el.target instanceof HTMLElement)) return false;
-            if (el.target.classList.contains("BnN6sQIg6NahNBun6fkP") && !Helpers.isCustom(el.target)) {
-              return true;
+        for (const mutation of mutationsList) {
+          if (mutation.type != "childList") {
+            continue;
+          }
+          for (const node of mutation.addedNodes) {
+            if (!(node instanceof HTMLElement)) continue;
+            const modal = node.matches(".TrackModal_modalContent__AzQPF") ? node : node.querySelector(".TrackModal_modalContent__AzQPF");
+            if (modal && !modal.dataset.reachTextProcessed) {
+              modal.dataset.reachTextProcessed = "true";
+              await this.createLyricsModalInTrackInfo(modal, null);
             }
-          })?.target;
-          await this.createLyricsModalInTrackInfo(modal, ymText);
+          }
+          const targetEl = mutation.target;
+          if (targetEl instanceof HTMLElement && targetEl.classList.contains("BnN6sQIg6NahNBun6fkP") && !Helpers.isCustom(targetEl)) {
+            const modal = targetEl.closest(".TrackModal_modalContent__AzQPF");
+            if (modal) {
+              await this.createLyricsModalInTrackInfo(modal, targetEl);
+            }
+          }
         }
       });
       observer.observe(document.body, {
