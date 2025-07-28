@@ -81,18 +81,18 @@ export abstract class Helpers {
     else return window.player;
   }
 
+  public static get audioPlayerState(): any {
+    if (Helpers.IS_NEW_VERSION) return window.sonataState?.state?.currentMediaPlayer?.value?.state;
+    else return window.player?.state?.currentMediaPlayer?.value?.audioPlayerState;
+  }
+
   public static get progress(): {
     duration: number;
     position: number;
     loaded: number;
-  } {
-    if (!Helpers.IS_NEW_VERSION) {
-      return Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState
-        ?.progress?.value;
-    } else {
-      return Helpers.player?.state?.currentMediaPlayer?.value?.state?.progress
-        ?.value;
-    }
+  }
+  {
+    return Helpers.audioPlayerState?.progress?.value;
   }
 
   public static get meta(): any {
@@ -101,16 +101,14 @@ export abstract class Helpers {
   }
 
   public static get speed(): number | null {
-    return Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState
+    return Helpers.audioPlayerState
       ?.speed?.value;
   }
 
-  public static get playerState(): { status: { value: string }; event: any } {
-    return Helpers.player?.state?.playerState;
-  }
+
 
   public static get status(): string {
-    return Helpers.player?.state?.currentMediaPlayer?.value?.audioPlayerState
+    return Helpers.audioPlayerState
       ?.status?.observableValue?.value;
   }
 
