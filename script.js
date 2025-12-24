@@ -3,7 +3,7 @@
   // src/helpers/Helpers.ts
   var Helpers = class _Helpers {
     /**
-     * Создает node элемент из HTML строки.
+     * Создает node элемент из HTML строки. 
      * src: https://stackoverflow.com/a/494348/25080935
      * @param {String} htmlString HTML строка представляющая node элемент.
      * @returns {HTMLElement} Элемент созданный из HTML строки.
@@ -49,6 +49,10 @@
       splitedVersion.forEach((element) => {
         version += element;
       });
+      var versionCode = parseInt(version);
+      if (versionCode < 5580) {
+        throw new Error("\u0412\u0430\u0448\u0430 \u0432\u0435\u0440\u0441\u0438\u044F \u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0438 \u043D\u0435 \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u0438\u043C\u0430 \u0441 \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0432\u0435\u0440\u0441\u0438\u0435\u0439 ReachText. \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C \u0440\u0430\u0431\u043E\u0442\u0443.");
+      }
       return parseInt(version) >= 5580;
     }
     /**
@@ -56,18 +60,17 @@
      * @returns {any} Экземпляр плеера
      */
     static get player() {
-      if (_Helpers.IS_NEW_VERSION) return window.sonataState;
-      else return window.player;
+      return window.sonataState;
     }
     static get audioPlayerState() {
-      if (_Helpers.IS_NEW_VERSION) return window.sonataState?.state?.currentMediaPlayer?.value?.state;
-      else return window.player?.state?.currentMediaPlayer?.value?.audioPlayerState;
+      if (_Helpers.IS_NEW_VERSION) return _Helpers.player?.playerState;
+      else return _Helpers.player?.state?.currentMediaPlayer?.value?.state;
     }
     static get progress() {
       return _Helpers.audioPlayerState?.progress?.value;
     }
     static get meta() {
-      return _Helpers.player?.state?.queueState?.currentEntity?.value?.entity?.entityData?.meta;
+      return (_Helpers.IS_NEW_VERSION ? _Helpers.player?.queueState : _Helpers.player?.state?.queueState)?.currentEntity?.value?.entity?.entityData?.meta;
     }
     static get speed() {
       return _Helpers.audioPlayerState?.speed?.value;
@@ -1221,5 +1224,6 @@
   };
 
   // src/index.ts
+  console.log("ReachText started");
   ReachText.get();
 })();

@@ -14,7 +14,7 @@ declare global {
  */
 export abstract class Helpers {
   /**
-   * Создает node элемент из HTML строки.
+   * Создает node элемент из HTML строки. 
    * src: https://stackoverflow.com/a/494348/25080935
    * @param {String} htmlString HTML строка представляющая node элемент.
    * @returns {HTMLElement} Элемент созданный из HTML строки.
@@ -69,6 +69,10 @@ export abstract class Helpers {
       version += element;
     });
 
+    var versionCode = parseInt(version);
+    if (versionCode < 5_58_0) {
+      throw new Error("Ваша версия Яндекс Музыки не совместима с текущей версией ReachText. Пожалуйста, обновите приложение, чтобы продолжить работу.");
+    }
     return parseInt(version) >= 5_58_0;
   }
 
@@ -77,13 +81,12 @@ export abstract class Helpers {
    * @returns {any} Экземпляр плеера
    */
   public static get player(): any {
-    if (Helpers.IS_NEW_VERSION) return window.sonataState;
-    else return window.player;
+    return window.sonataState;
   }
 
   public static get audioPlayerState(): any {
-    if (Helpers.IS_NEW_VERSION) return window.sonataState?.state?.currentMediaPlayer?.value?.state;
-    else return window.player?.state?.currentMediaPlayer?.value?.audioPlayerState;
+    if (Helpers.IS_NEW_VERSION) return Helpers.player?.playerState;
+    else return Helpers.player?.state?.currentMediaPlayer?.value?.state;
   }
 
   public static get progress(): {
@@ -96,16 +99,14 @@ export abstract class Helpers {
   }
 
   public static get meta(): any {
-    return Helpers.player?.state?.queueState?.currentEntity?.value?.entity
-      ?.entityData?.meta;
+    return (Helpers.IS_NEW_VERSION ? Helpers.player?.queueState : Helpers.player?.state?.queueState)
+      ?.currentEntity?.value?.entity?.entityData?.meta;
   }
 
   public static get speed(): number | null {
     return Helpers.audioPlayerState
       ?.speed?.value;
   }
-
-
 
   public static get status(): string {
     return Helpers.audioPlayerState
